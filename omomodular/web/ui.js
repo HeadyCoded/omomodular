@@ -100,19 +100,29 @@ const MODULE_DEFINITIONS = {
     ],
   },
   mixer: {
-    name: '4-CH MIXER & MASTER',
+    name: '8-CH MASTER MIXING CONSOLE',
     category: 'Master',
-    width: 260,
-    desc: '4 stereo channels with gain, pan, master limiter, and live oscilloscope.',
-    inputs: ['in1', 'in2', 'in3', 'in4'],
+    width: '100%',
+    desc: 'Full-length 8-channel stereo master console with per-channel gain, pan, mute, solo, and live master oscilloscope.',
+    inputs: ['in1', 'in2', 'in3', 'in4', 'in5', 'in6', 'in7', 'in8'],
     outputs: [],
     controls: [
       { id: 'ch1_gain', label: 'CH 1', type: 'knob', min: 0, max: 1.2, default: 0.85, unit: '', step: 0.01 },
       { id: 'ch1_pan', label: 'PAN 1', type: 'knob', min: -1, max: 1, default: 0, unit: '', step: 0.05 },
-      { id: 'ch2_gain', label: 'CH 2', type: 'knob', min: 0, max: 1.2, default: 0.4, unit: '', step: 0.01 },
+      { id: 'ch2_gain', label: 'CH 2', type: 'knob', min: 0, max: 1.2, default: 0.85, unit: '', step: 0.01 },
       { id: 'ch2_pan', label: 'PAN 2', type: 'knob', min: -1, max: 1, default: 0, unit: '', step: 0.05 },
       { id: 'ch3_gain', label: 'CH 3', type: 'knob', min: 0, max: 1.2, default: 0.0, unit: '', step: 0.01 },
+      { id: 'ch3_pan', label: 'PAN 3', type: 'knob', min: -1, max: 1, default: 0, unit: '', step: 0.05 },
       { id: 'ch4_gain', label: 'CH 4', type: 'knob', min: 0, max: 1.2, default: 0.0, unit: '', step: 0.01 },
+      { id: 'ch4_pan', label: 'PAN 4', type: 'knob', min: -1, max: 1, default: 0, unit: '', step: 0.05 },
+      { id: 'ch5_gain', label: 'CH 5', type: 'knob', min: 0, max: 1.2, default: 0.0, unit: '', step: 0.01 },
+      { id: 'ch5_pan', label: 'PAN 5', type: 'knob', min: -1, max: 1, default: 0, unit: '', step: 0.05 },
+      { id: 'ch6_gain', label: 'CH 6', type: 'knob', min: 0, max: 1.2, default: 0.0, unit: '', step: 0.01 },
+      { id: 'ch6_pan', label: 'PAN 6', type: 'knob', min: -1, max: 1, default: 0, unit: '', step: 0.05 },
+      { id: 'ch7_gain', label: 'CH 7', type: 'knob', min: 0, max: 1.2, default: 0.0, unit: '', step: 0.01 },
+      { id: 'ch7_pan', label: 'PAN 7', type: 'knob', min: -1, max: 1, default: 0, unit: '', step: 0.05 },
+      { id: 'ch8_gain', label: 'CH 8', type: 'knob', min: 0, max: 1.2, default: 0.0, unit: '', step: 0.01 },
+      { id: 'ch8_pan', label: 'PAN 8', type: 'knob', min: -1, max: 1, default: 0, unit: '', step: 0.05 },
     ],
   },
   swarm: {
@@ -585,8 +595,10 @@ const MODULE_DEFINITIONS = {
     controls: [
       { id: 'rate', label: 'SPEED', type: 'knob', min: 0.25, max: 3.0, default: 1.0, unit: 'x', step: 0.05 },
       { id: 'transpose', label: 'TRANS', type: 'knob', min: -24, max: 24, default: 0, unit: 'st', step: 1 },
-      { id: 'level', label: 'LEVEL', type: 'knob', min: 0, max: 1, default: 0.8, unit: '', step: 0.01 },
+      { id: 'gain', label: 'BOOST', type: 'knob', min: 0.5, max: 4.0, default: 1.8, unit: 'x', step: 0.1 },
+      { id: 'level', label: 'LEVEL', type: 'knob', min: 0, max: 2.0, default: 1.0, unit: '', step: 0.01 },
       { id: 'timbre', label: 'TIMBRE', type: 'select', options: ['analog_saw', 'poly_epiano', 'chiptune', 'fm_bell', 'sine_sub'], default: 'analog_saw' },
+      { id: 'ratio', label: 'BPM SNAP RATIO', type: 'select', options: ['free', '1x_full', '1/2_half', '1/4_quarter', '1/8_8th', '1/16_16th', '2x_double'], default: 'free' },
     ],
   },
 };
@@ -599,19 +611,353 @@ class ModularRackUI {
     this.modulesState = []; // [{ id, type, row, params }]
     this.selectedModuleEl = null;
     this.selectedRowIdx = 0;
+    this.modularRows = null;
 
+    this.mixerParams = {
+      ch1_gain: 0.85, ch1_pan: 0.0, ch1_mute: false, ch1_solo: false,
+      ch2_gain: 0.85, ch2_pan: 0.0, ch2_mute: false, ch2_solo: false,
+      ch3_gain: 0.0,  ch3_pan: 0.0, ch3_mute: false, ch3_solo: false,
+      ch4_gain: 0.0,  ch4_pan: 0.0, ch4_mute: false, ch4_solo: false,
+      ch5_gain: 0.0,  ch5_pan: 0.0, ch5_mute: false, ch5_solo: false,
+      ch6_gain: 0.0,  ch6_pan: 0.0, ch6_mute: false, ch6_solo: false,
+      ch7_gain: 0.0,  ch7_pan: 0.0, ch7_mute: false, ch7_solo: false,
+      ch8_gain: 0.0,  ch8_pan: 0.0, ch8_mute: false, ch8_solo: false,
+      master_vol: 0.85,
+    };
+
+    this.initMasterRack();
     this.initDrawer();
     this.initMidiDrawer();
     this.initShortcuts();
     this.startOscilloscope();
+
+    window.onJackStatusUpdated = () => this.updateMasterConsolePatchCount();
+  }
+
+  initMasterRack() {
+    let masterRow = document.getElementById('master-console-rack');
+    if (!masterRow) {
+      masterRow = document.createElement('div');
+      masterRow.id = 'master-console-rack';
+      masterRow.classList.add('master-console-row');
+
+      let screws = '';
+      for (let i = 0; i < 48; i++) {
+        screws += '<div class="rail-screw"></div>';
+      }
+
+      let channelsHtml = '';
+      for (let i = 1; i <= 8; i++) {
+        const defaultGain = (i <= 2) ? 0.85 : 0.0;
+        channelsHtml += `
+          <div class="console-strip" data-ch="${i}">
+            <div class="strip-header">
+              <span class="strip-label">CH ${i}</span>
+              <div class="strip-signal-led" data-ch="${i}" title="Signal Present"></div>
+            </div>
+            <div class="strip-jack-zone">
+              <div class="jack in-jack" data-module="mixer_1" data-jack="in${i}" data-direction="in" title="CH ${i} Audio In [IN ${i}]">
+                <div class="jack-hole"></div>
+              </div>
+              <span class="strip-jack-tag">IN ${i}</span>
+            </div>
+            <div class="strip-buttons">
+              <button class="strip-btn strip-mute-btn" data-ch="${i}" title="Mute Channel ${i}">M</button>
+              <button class="strip-btn strip-solo-btn" data-ch="${i}" title="Solo Channel ${i}">S</button>
+            </div>
+            <div class="strip-controls">
+              <div class="knob-wrap mini-knob-wrap" data-param="ch${i}_pan">
+                <div class="knob mini-knob" data-min="-1" data-max="1" data-step="0.05" data-val="0" data-unit="">
+                  <div class="knob-dial"><div class="knob-pointer"></div></div>
+                </div>
+                <span class="mini-control-label">PAN</span>
+                <span class="knob-value mini-knob-val">C</span>
+              </div>
+              <div class="knob-wrap mini-knob-wrap" data-param="ch${i}_gain">
+                <div class="knob mini-knob" data-min="0" data-max="1.2" data-step="0.01" data-val="${defaultGain}" data-unit="">
+                  <div class="knob-dial"><div class="knob-pointer"></div></div>
+                </div>
+                <span class="mini-control-label">LEVEL</span>
+                <span class="knob-value mini-knob-val">${this.formatVal(defaultGain, '')}</span>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
+      masterRow.innerHTML = `
+        <div class="rack-rail top-rail">
+          <div class="rail-screws-strip">${screws}</div>
+          <div class="master-console-tag">
+            <span class="console-led"></span>
+            <span class="console-title">MASTER MIXING CONSOLE</span>
+            <span class="console-sub">8-CH STEREO BUS &bull; ANALOG SATURATION &bull; LIMITER</span>
+          </div>
+        </div>
+        <div class="master-console-faceplate">
+          <div class="console-section console-identity">
+            <div class="console-brand-text">OMOMODULAR</div>
+            <div class="console-model-badge">MODEL 800-M</div>
+            <div class="console-status-row">
+              <span class="console-bus-pill">8-CH BUS</span>
+              <span class="console-patch-count" id="master-patch-count">0 / 8 PATCHED</span>
+            </div>
+            <button class="console-reset-btn" id="master-reset-mix-btn" title="Reset all channels to unity level and center pan">FLAT MIX</button>
+          </div>
+          <div class="console-channels">
+            ${channelsHtml}
+          </div>
+          <div class="console-section console-master-out">
+            <div class="console-scope-wrap">
+              <div class="scope-header-row">
+                <span class="scope-title">SUMMED OUTPUT WAVEFORM</span>
+                <span class="scope-fft-badge">1024 FFT</span>
+              </div>
+              <div class="scope-screen">
+                <canvas id="scope-canvas" width="230" height="60"></canvas>
+              </div>
+            </div>
+            <div class="console-master-dial-wrap">
+              <div class="knob-wrap" data-param="master_vol">
+                <div class="knob" id="console-master-knob" data-min="0" data-max="1.2" data-step="0.01" data-val="0.85" data-unit="">
+                  <div class="knob-dial"><div class="knob-pointer"></div></div>
+                </div>
+                <span class="control-label">MASTER</span>
+                <span class="knob-value" id="console-master-val">0.85</span>
+              </div>
+              <div class="console-limiter-wrap" title="Master Dynamics Protection (Brickwall Limiter)">
+                <div class="limiter-led" id="master-limiter-led"></div>
+                <span class="limiter-label">LIMITER</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="rack-rail bottom-rail">
+          <div class="rail-screws-strip">${screws}</div>
+        </div>
+      `;
+
+      this.rack.prepend(masterRow);
+    }
+
+    let modularRows = document.getElementById('modular-rows');
+    if (!modularRows) {
+      modularRows = document.createElement('div');
+      modularRows.id = 'modular-rows';
+      this.rack.appendChild(modularRows);
+    }
+    this.modularRows = modularRows;
+
+    this.bindMasterConsoleEvents(masterRow);
+  }
+
+  formatPan(val) {
+    const num = parseFloat(val) || 0;
+    if (Math.abs(num) < 0.04) return 'C';
+    if (num < 0) return `L${Math.round(Math.abs(num) * 100)}`;
+    return `R${Math.round(num * 100)}`;
+  }
+
+  bindMasterConsoleEvents(masterRow) {
+    // Jacks click: unplug connected cable
+    masterRow.querySelectorAll('.jack').forEach(jackEl => {
+      jackEl.addEventListener('mousedown', (e) => {
+        if (e.button !== 0) return;
+        const jackName = jackEl.dataset.jack;
+        const cable = this.cables.cables.find(
+          c => c.to.moduleId === 'mixer_1' && c.to.jack === jackName
+        );
+        if (cable) {
+          e.preventDefault();
+          this.cables.removeCable(cable.id);
+        }
+      });
+    });
+
+    // Channel strip knobs and buttons
+    masterRow.querySelectorAll('.console-strip').forEach(strip => {
+      const ch = strip.dataset.ch;
+      const panKnob = strip.querySelector(`.knob-wrap[data-param="ch${ch}_pan"] .knob`);
+      const gainKnob = strip.querySelector(`.knob-wrap[data-param="ch${ch}_gain"] .knob`);
+
+      if (panKnob) {
+        this.bindKnob(panKnob, (val) => {
+          this.mixerParams[`ch${ch}_pan`] = val;
+          const dspMixer = this.dsp.modules.get('mixer_1');
+          if (dspMixer) dspMixer.setParam(`ch${ch}_pan`, val);
+
+          const valSpan = panKnob.closest('.knob-wrap').querySelector('.knob-value');
+          if (valSpan) valSpan.textContent = this.formatPan(val);
+          this.syncMixerState();
+          if (window.onPatchModified) window.onPatchModified();
+        });
+      }
+
+      if (gainKnob) {
+        this.bindKnob(gainKnob, (val) => {
+          this.mixerParams[`ch${ch}_gain`] = val;
+          const dspMixer = this.dsp.modules.get('mixer_1');
+          if (dspMixer) dspMixer.setParam(`ch${ch}_gain`, val);
+
+          const valSpan = gainKnob.closest('.knob-wrap').querySelector('.knob-value');
+          if (valSpan) valSpan.textContent = this.formatVal(val, '');
+          this.syncMixerState();
+          if (window.onPatchModified) window.onPatchModified();
+        });
+      }
+
+      const muteBtn = strip.querySelector('.strip-mute-btn');
+      if (muteBtn) {
+        muteBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const isMuted = !this.mixerParams[`ch${ch}_mute`];
+          this.mixerParams[`ch${ch}_mute`] = isMuted;
+          muteBtn.classList.toggle('active', isMuted);
+          const dspMixer = this.dsp.modules.get('mixer_1');
+          if (dspMixer) dspMixer.setParam(`ch${ch}_mute`, isMuted);
+          this.syncMixerState();
+          if (window.onPatchModified) window.onPatchModified();
+        });
+      }
+
+      const soloBtn = strip.querySelector('.strip-solo-btn');
+      if (soloBtn) {
+        soloBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const isSolo = !this.mixerParams[`ch${ch}_solo`];
+          this.mixerParams[`ch${ch}_solo`] = isSolo;
+          soloBtn.classList.toggle('active', isSolo);
+          const dspMixer = this.dsp.modules.get('mixer_1');
+          if (dspMixer) dspMixer.setParam(`ch${ch}_solo`, isSolo);
+          this.syncMixerState();
+          if (window.onPatchModified) window.onPatchModified();
+        });
+      }
+    });
+
+    // Master volume dial
+    const masterKnob = masterRow.querySelector('#console-master-knob');
+    if (masterKnob) {
+      this.bindKnob(masterKnob, (val) => {
+        this.mixerParams.master_vol = val;
+        this.dsp.setMasterVolume(val);
+        const slider = document.getElementById('master-vol');
+        if (slider) slider.value = val;
+        const valSpan = document.getElementById('console-master-val');
+        if (valSpan) valSpan.textContent = this.formatVal(val, '');
+        this.syncMixerState();
+        if (window.onPatchModified) window.onPatchModified();
+      });
+    }
+
+    // Flat Mix Reset button
+    const resetBtn = masterRow.querySelector('#master-reset-mix-btn');
+    if (resetBtn) {
+      resetBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        for (let i = 1; i <= 8; i++) {
+          this.mixerParams[`ch${i}_gain`] = 0.85;
+          this.mixerParams[`ch${i}_pan`] = 0.0;
+          this.mixerParams[`ch${i}_mute`] = false;
+          this.mixerParams[`ch${i}_solo`] = false;
+        }
+        const dspMixer = this.dsp.modules.get('mixer_1');
+        if (dspMixer) {
+          for (const [k, v] of Object.entries(this.mixerParams)) {
+            dspMixer.setParam(k, v);
+          }
+        }
+        this.updateMasterConsoleUi(this.mixerParams);
+        this.syncMixerState();
+        if (window.onPatchModified) window.onPatchModified();
+      });
+    }
+  }
+
+  syncMixerState() {
+    let m = this.modulesState.find(x => x.id === 'mixer_1' || x.type === 'mixer');
+    if (!m) {
+      m = { id: 'mixer_1', type: 'mixer', row: -1, params: {} };
+      this.modulesState.unshift(m);
+    }
+    m.params = Object.assign({}, this.mixerParams);
+  }
+
+  updateMasterConsoleUi(params) {
+    const masterRow = document.getElementById('master-console-rack');
+    if (!masterRow) return;
+
+    for (let i = 1; i <= 8; i++) {
+      const gVal = params[`ch${i}_gain`] !== undefined ? params[`ch${i}_gain`] : (i <= 2 ? 0.85 : 0.0);
+      const pVal = params[`ch${i}_pan`] !== undefined ? params[`ch${i}_pan`] : 0.0;
+      const isMuted = !!params[`ch${i}_mute`];
+      const isSolo = !!params[`ch${i}_solo`];
+
+      this.mixerParams[`ch${i}_gain`] = gVal;
+      this.mixerParams[`ch${i}_pan`] = pVal;
+      this.mixerParams[`ch${i}_mute`] = isMuted;
+      this.mixerParams[`ch${i}_solo`] = isSolo;
+
+      const strip = masterRow.querySelector(`.console-strip[data-ch="${i}"]`);
+      if (strip) {
+        const gainKnob = strip.querySelector(`.knob-wrap[data-param="ch${i}_gain"] .knob`);
+        if (gainKnob) this.setKnobValue(gainKnob, gVal);
+
+        const panKnob = strip.querySelector(`.knob-wrap[data-param="ch${i}_pan"] .knob`);
+        if (panKnob) {
+          this.setKnobValue(panKnob, pVal);
+          const valSpan = strip.querySelector(`.knob-wrap[data-param="ch${i}_pan"] .knob-value`);
+          if (valSpan) valSpan.textContent = this.formatPan(pVal);
+        }
+
+        const muteBtn = strip.querySelector('.strip-mute-btn');
+        if (muteBtn) muteBtn.classList.toggle('active', isMuted);
+
+        const soloBtn = strip.querySelector('.strip-solo-btn');
+        if (soloBtn) soloBtn.classList.toggle('active', isSolo);
+      }
+    }
+
+    if (params.master_vol !== undefined) {
+      this.mixerParams.master_vol = params.master_vol;
+      const masterKnob = masterRow.querySelector('#console-master-knob');
+      if (masterKnob) this.setKnobValue(masterKnob, params.master_vol);
+      const valSpan = document.getElementById('console-master-val');
+      if (valSpan) valSpan.textContent = this.formatVal(params.master_vol, '');
+    }
+  }
+
+  updateMasterConsolePatchCount() {
+    const masterRow = document.getElementById('master-console-rack');
+    if (!masterRow) return;
+
+    let count = 0;
+    for (let i = 1; i <= 8; i++) {
+      const hasCable = this.cables.cables.some(
+        c => c.to.moduleId === 'mixer_1' && c.to.jack === `in${i}`
+      );
+      if (hasCable) count++;
+
+      const led = masterRow.querySelector(`.strip-signal-led[data-ch="${i}"]`);
+      if (led) led.classList.toggle('active', hasCable);
+    }
+
+    const countEl = document.getElementById('master-patch-count');
+    if (countEl) {
+      countEl.textContent = `${count} / 8 PATCHED`;
+      countEl.classList.toggle('active', count > 0);
+    }
   }
 
   getRowCount() {
-    return this.rack.querySelectorAll('.rack-row').length;
+    return this.modularRows ? this.modularRows.querySelectorAll('.rack-row').length : 0;
   }
 
   ensureRow(rowIdx) {
-    let rowEl = this.rack.querySelector(`.rack-row[data-row-idx="${rowIdx}"]`);
+    if (!this.modularRows) {
+      this.initMasterRack();
+    }
+    let rowEl = this.modularRows.querySelector(`.rack-row[data-row-idx="${rowIdx}"]`);
     if (rowEl) return rowEl;
 
     let screws = '';
@@ -641,6 +987,79 @@ class ModularRackUI {
       </div>
     `;
 
+    const slot = rowEl.querySelector('.rack-modules-slot');
+    if (slot) {
+      slot.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        const types = Array.from(e.dataTransfer.types || []);
+        if (types.includes('text/midi-payload') || types.includes('application/json') || types.includes('Files')) {
+          slot.classList.add('slot-midi-drag-over');
+        } else if (types.includes('text/module-type')) {
+          slot.classList.add('slot-module-drag-over');
+        }
+      });
+
+      slot.addEventListener('dragleave', (e) => {
+        if (!slot.contains(e.relatedTarget)) {
+          slot.classList.remove('slot-midi-drag-over');
+          slot.classList.remove('slot-module-drag-over');
+        }
+      });
+
+      slot.addEventListener('drop', async (e) => {
+        e.preventDefault();
+        slot.classList.remove('slot-midi-drag-over');
+        slot.classList.remove('slot-module-drag-over');
+
+        // 1. Dropping a module from catalog
+        const modType = e.dataTransfer.getData('text/module-type');
+        if (modType && MODULE_DEFINITIONS[modType]) {
+          this.selectedRowIdx = rowIdx;
+          this.addModule(modType, rowIdx);
+          return;
+        }
+
+        // 2. Dropping a MIDI file / card
+        let midiData = null;
+        const jsonStr = e.dataTransfer.getData('text/midi-payload') || e.dataTransfer.getData('application/json');
+        if (jsonStr) {
+          try { midiData = JSON.parse(jsonStr); } catch (err) {}
+        }
+
+        const isLocalFile = e.dataTransfer.files && e.dataTransfer.files.length > 0;
+
+        if (midiData || isLocalFile) {
+          let targetMidiMod = this.modulesState.find(m => m.row === rowIdx && m.type === 'midi_player');
+          if (!targetMidiMod) {
+            targetMidiMod = this.modulesState.find(m => m.type === 'midi_player');
+          }
+          if (!targetMidiMod) {
+            this.selectedRowIdx = rowIdx;
+            const newMod = this.addModule('midi_player', rowIdx);
+            targetMidiMod = newMod || this.modulesState.find(m => m.type === 'midi_player');
+          }
+
+          if (targetMidiMod) {
+            const modEl = this.rack.querySelector(`.module-panel[data-id="${targetMidiMod.id}"]`);
+            if (modEl) {
+              if (isLocalFile) {
+                const file = e.dataTransfer.files[0];
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                  if (typeof modEl._loadBuffer === 'function') {
+                    modEl._loadBuffer(ev.target.result, file.name);
+                  }
+                };
+                reader.readAsArrayBuffer(file);
+              } else if (midiData && midiData.download_url && typeof modEl._loadMidiUrl === 'function') {
+                await modEl._loadMidiUrl(midiData.download_url, midiData.title || midiData.filename, !!midiData.auto_isolate);
+              }
+            }
+          }
+        }
+      });
+    }
+
     const removeBtn = rowEl.querySelector('.remove-row-btn');
     if (removeBtn) {
       removeBtn.addEventListener('click', (e) => {
@@ -651,11 +1070,11 @@ class ModularRackUI {
 
     rowEl.addEventListener('click', () => {
       this.selectedRowIdx = rowIdx;
-      this.rack.querySelectorAll('.rack-row').forEach(r => r.classList.remove('active-row'));
+      this.modularRows.querySelectorAll('.rack-row').forEach(r => r.classList.remove('active-row'));
       rowEl.classList.add('active-row');
     });
 
-    this.rack.appendChild(rowEl);
+    this.modularRows.appendChild(rowEl);
     return rowEl;
   }
 
@@ -668,32 +1087,45 @@ class ModularRackUI {
   }
 
   removeRow(rowIdx) {
-    const slot = this.rack.querySelector(`.rack-modules-slot[data-row-idx="${rowIdx}"]`);
+    if (this.getRowCount() <= 1) {
+      alert('At least one modular row must remain.');
+      return;
+    }
+    const slot = this.modularRows.querySelector(`.rack-modules-slot[data-row-idx="${rowIdx}"]`);
     if (slot && slot.children.length > 0) {
       alert(`Cannot remove Row ${rowIdx + 1}: remove its modules first.`);
       return;
     }
-    const rowEl = this.rack.querySelector(`.rack-row[data-row-idx="${rowIdx}"]`);
+    const rowEl = this.modularRows.querySelector(`.rack-row[data-row-idx="${rowIdx}"]`);
     if (rowEl) rowEl.remove();
 
-    this.rack.querySelectorAll('.rack-row').forEach((r, idx) => {
+    this.modularRows.querySelectorAll('.rack-row').forEach((r, idx) => {
       r.dataset.rowIdx = idx;
       const numSpan = r.querySelector('.row-num');
       if (numSpan) numSpan.textContent = `ROW ${idx + 1}`;
       const slotEl = r.querySelector('.rack-modules-slot');
       if (slotEl) slotEl.dataset.rowIdx = idx;
+      const rm = r.querySelector('.remove-row-btn');
+      if (rm) rm.dataset.row = idx;
     });
+
+    this.selectedRowIdx = Math.max(0, rowIdx - 1);
     this.cables.render();
     if (window.onPatchModified) window.onPatchModified();
   }
 
   renderModule(modData) {
+    if (modData.type === 'mixer' || modData.id === 'mixer_1') {
+      this.updateMasterConsoleUi(modData.params || {});
+      return null;
+    }
+
     const def = MODULE_DEFINITIONS[modData.type];
     if (!def) return null;
 
     const rowIdx = modData.row !== undefined ? modData.row : (this.selectedRowIdx || 0);
     this.ensureRow(rowIdx);
-    const slot = this.rack.querySelector(`.rack-modules-slot[data-row-idx="${rowIdx}"]`);
+    const slot = this.modularRows.querySelector(`.rack-modules-slot[data-row-idx="${rowIdx}"]`);
 
     const el = document.createElement('div');
     el.classList.add('module-panel');
@@ -710,7 +1142,11 @@ class ModularRackUI {
       <div class="screw screw-br"></div>
     `;
 
-    // Header with remove button (except permanent mixer)
+    // Header with remove button and snap button
+    const hasTempo = (def.controls && def.controls.some(c => c.id === 'bpm')) || modData.type === 'midi_player';
+    const snapBtnHtml = hasTempo
+      ? `<button class="mod-snap-btn" title="Snap module tempo to Master BPM [⚡]">&#x26A1;</button>`
+      : '';
     const removeBtnHtml = modData.type !== 'mixer'
       ? `<button class="mod-remove-btn" title="Remove Module">&times;</button>`
       : '';
@@ -718,7 +1154,10 @@ class ModularRackUI {
     const headerHtml = `
       <div class="module-header">
         <div class="module-title">${def.name}</div>
-        ${removeBtnHtml}
+        <div style="display:flex; align-items:center; gap:2px;">
+          ${snapBtnHtml}
+          ${removeBtnHtml}
+        </div>
       </div>
     `;
 
@@ -771,7 +1210,10 @@ class ModularRackUI {
           <div class="midi-file-zone" title="Drag & Drop .mid file here or click Browse">
             <div class="midi-file-info">
               <div class="midi-file-name">NO MIDI LOADED</div>
-              <div class="midi-file-sub">DROP .MID FILE HERE</div>
+              <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                <span class="midi-file-sub">DROP .MID FILE HERE</span>
+                <button class="midi-use-bpm-btn" style="display:none;" title="Set Master Rack Tempo to this MIDI BPM and snap all sources">&#x26A1; USE AS MASTER</button>
+              </div>
             </div>
             <label class="midi-browse-btn" title="Browse local file">
               BROWSE<input type="file" accept=".mid,.midi" class="midi-file-input" style="display:none">
@@ -781,9 +1223,19 @@ class ModularRackUI {
             <div class="midi-progress-bar"></div>
           </div>
           <div class="midi-transport-row">
-            <button class="midi-transport-btn midi-play-btn active">[&#9654; PLAY]</button>
-            <button class="midi-transport-btn midi-rewind-btn">[&#9198; REWIND]</button>
-            <button class="midi-transport-btn midi-loop-btn active">[&#x27F3; LOOP]</button>
+            <button class="midi-transport-btn midi-play-btn active" title="Play / Pause">[&#9654; PLAY]</button>
+            <button class="midi-transport-btn midi-rewind-btn" title="Rewind to Downbeat">[&#9198; REWIND]</button>
+            <button class="midi-transport-btn midi-loop-btn active" title="Toggle Loop Mode">[&#x27F3; LOOP]</button>
+            <select class="midi-loop-snap-select" title="Loop Quantize: snap to musical bars or exact length">
+              <option value="auto">SNAP: AUTO</option>
+              <option value="1">1 BAR</option>
+              <option value="2">2 BARS</option>
+              <option value="4">4 BARS</option>
+              <option value="8">8 BARS</option>
+              <option value="12">12 BARS</option>
+              <option value="16">16 BARS</option>
+              <option value="exact">EXACT RAW</option>
+            </select>
           </div>
           <div style="display:flex; justify-content:space-between; font-size:8px; color:var(--omo-dim); font-weight:700; margin-top:2px;">
             <span>TRACKS / LAYERS</span>
@@ -853,6 +1305,14 @@ class ModularRackUI {
       });
     }
 
+    const snapBtn = el.querySelector('.mod-snap-btn');
+    if (snapBtn) {
+      snapBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.snapSingleModule(modId);
+      });
+    }
+
     el.querySelectorAll('.knob').forEach(knobEl => {
       this.bindKnob(knobEl, (val) => {
         const paramId = knobEl.closest('.knob-wrap').dataset.param;
@@ -871,6 +1331,27 @@ class ModularRackUI {
         const val = e.target.value;
         modData.params[paramId] = val;
         if (dspMod) dspMod.setParam(paramId, val);
+
+        if (modData.type === 'midi_player' && paramId === 'ratio') {
+          if (val !== 'free') {
+            const ratioMap = {
+              '1x_full': 1.0,
+              '1/2_half': 0.5,
+              '1/4_quarter': 0.25,
+              '1/8_8th': 0.125,
+              '1/16_16th': 0.0625,
+              '2x_double': 2.0
+            };
+            const ratioVal = ratioMap[val] || 1.0;
+            const res = this.dsp.snapModuleBpm(modId, null, ratioVal);
+            if (res) {
+              modData.params.rate = res.value;
+              const knobEl = el.querySelector('.knob-wrap[data-param="rate"] .knob');
+              if (knobEl) this.setKnobValue(knobEl, res.value);
+            }
+          }
+        }
+
         if (window.onPatchModified) window.onPatchModified();
       });
     });
@@ -888,6 +1369,9 @@ class ModularRackUI {
           );
           if (cable) {
             this.cables.removeCable(cable.id);
+          } else {
+            e.preventDefault();
+            this.cables.startDragging(jackEl);
           }
         }
       });
@@ -915,14 +1399,27 @@ class ModularRackUI {
           const row = document.createElement('div');
           row.classList.add('midi-track-row');
           row.dataset.trackId = track.id;
+          const trkVol = track.volume !== undefined ? track.volume : 1.0;
           row.innerHTML = `
             <div class="midi-track-led" data-track-id="${track.id}"></div>
             <div class="midi-track-name" title="${track.name}">${track.name}</div>
             <span class="midi-track-count">${track.notes.length}n</span>
+            <input type="range" class="midi-track-vol" min="0" max="2.5" step="0.05" value="${trkVol}" title="Track Volume: ${Math.round(trkVol * 100)}%">
             <button class="midi-track-btn iso-btn" title="Isolate single track (mute all other tracks)">1-TRK</button>
             <button class="midi-track-btn mute-btn ${track.muted ? 'active' : ''}" title="Mute Track">M</button>
             <button class="midi-track-btn solo-btn ${track.solo ? 'active' : ''}" title="Solo Track">S</button>
           `;
+          const volInput = row.querySelector('.midi-track-vol');
+          volInput.addEventListener('input', (e) => {
+            const v = parseFloat(e.target.value);
+            track.volume = v;
+            if (dspMod.setTrackVolume) dspMod.setTrackVolume(track.id, v);
+            volInput.title = `Track Volume: ${Math.round(v * 100)}%`;
+          });
+          volInput.addEventListener('mousedown', (e) => {
+            e.stopPropagation();
+          });
+
           const isoBtn = row.querySelector('.iso-btn');
           const mBtn = row.querySelector('.mute-btn');
           const sBtn = row.querySelector('.solo-btn');
@@ -936,7 +1433,8 @@ class ModularRackUI {
               r.querySelector('.solo-btn').classList.remove('active');
             });
             if (fileSubEl) {
-              fileSubEl.textContent = `★ ISOLATED 1-TRACK: ${track.name} (${track.notes.length}n)`;
+              const curDur = dspMod.totalDuration || dspMod.midiData.duration || 1.0;
+              fileSubEl.textContent = `★ ISOLATED 1-TRACK: ${track.name} (${curDur.toFixed(1)}s • ${track.notes.length}n)`;
             }
           });
           mBtn.addEventListener('click', (e) => {
@@ -978,7 +1476,13 @@ class ModularRackUI {
           dspMod.loadMidi(parsed, name);
           if (fileNameEl) fileNameEl.textContent = parsed.title;
           const isSingle = (parsed.tracks.length <= 1);
-          if (fileSubEl) fileSubEl.textContent = `${parsed.bpm} BPM • ${parsed.duration.toFixed(1)}s • ${parsed.tracks.length} track${isSingle ? ' (1-TRK)' : 's'}`;
+          const curDur = dspMod.totalDuration || parsed.duration;
+          if (fileSubEl) fileSubEl.textContent = `${parsed.bpm} BPM • ${curDur.toFixed(1)}s • ${parsed.tracks.length} track${isSingle ? ' (1-TRK)' : 's'}`;
+          const useBpmBtn = faceplate ? faceplate.querySelector('.midi-use-bpm-btn') : null;
+          if (useBpmBtn && parsed.bpm) {
+            useBpmBtn.style.display = 'inline-block';
+            useBpmBtn.textContent = `⚡ USE ${parsed.bpm} BPM`;
+          }
           updateTracksUI(parsed.tracks);
           if (window.onPatchModified) window.onPatchModified();
           return parsed;
@@ -1001,6 +1505,43 @@ class ModularRackUI {
         });
       }
 
+      const handleMidiDrop = async (e) => {
+        e.preventDefault();
+        el.classList.remove('midi-panel-drag-over');
+        if (dropZone) dropZone.classList.remove('drag-over');
+
+        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+          const file = e.dataTransfer.files[0];
+          const reader = new FileReader();
+          reader.onload = (ev) => loadBuffer(ev.target.result, file.name);
+          reader.readAsArrayBuffer(file);
+          return;
+        }
+
+        const jsonStr = e.dataTransfer.getData('text/midi-payload') || e.dataTransfer.getData('application/json') || e.dataTransfer.getData('text/plain');
+        if (jsonStr) {
+          try {
+            const data = JSON.parse(jsonStr);
+            if (data.download_url) {
+              await el._loadMidiUrl(data.download_url, data.title || data.filename, !!data.auto_isolate);
+            }
+          } catch (err) {
+            console.error('Drag load error:', err);
+          }
+        }
+      };
+
+      el.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        el.classList.add('midi-panel-drag-over');
+      });
+      el.addEventListener('dragleave', (e) => {
+        if (!el.contains(e.relatedTarget)) {
+          el.classList.remove('midi-panel-drag-over');
+        }
+      });
+      el.addEventListener('drop', handleMidiDrop);
+
       if (dropZone) {
         dropZone.addEventListener('dragover', (e) => {
           e.preventDefault();
@@ -1009,30 +1550,7 @@ class ModularRackUI {
         dropZone.addEventListener('dragleave', () => {
           dropZone.classList.remove('drag-over');
         });
-        dropZone.addEventListener('drop', async (e) => {
-          e.preventDefault();
-          dropZone.classList.remove('drag-over');
-
-          if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-            const file = e.dataTransfer.files[0];
-            const reader = new FileReader();
-            reader.onload = (ev) => loadBuffer(ev.target.result, file.name);
-            reader.readAsArrayBuffer(file);
-            return;
-          }
-
-          const jsonStr = e.dataTransfer.getData('application/json') || e.dataTransfer.getData('text/plain');
-          if (jsonStr) {
-            try {
-              const data = JSON.parse(jsonStr);
-              if (data.download_url) {
-                await el._loadMidiUrl(data.download_url, data.title || data.filename, !!data.auto_isolate);
-              }
-            } catch (err) {
-              console.error('Drag load error:', err);
-            }
-          }
-        });
+        dropZone.addEventListener('drop', handleMidiDrop);
       }
 
       if (playBtn) {
@@ -1056,6 +1574,38 @@ class ModularRackUI {
           e.stopPropagation();
           const looping = dspMod.toggleLoop();
           loopBtn.classList.toggle('active', looping);
+        });
+      }
+
+      const useBpmBtn = faceplate ? faceplate.querySelector('.midi-use-bpm-btn') : null;
+      if (useBpmBtn) {
+        useBpmBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (dspMod.midiData && dspMod.midiData.bpm) {
+            const masterInput = document.getElementById('master-bpm-input');
+            if (masterInput) masterInput.value = dspMod.midiData.bpm;
+            this.dsp.setMasterBpm(dspMod.midiData.bpm);
+            this.snapAllBpm('1');
+          }
+        });
+      }
+
+      const snapSelect = faceplate ? faceplate.querySelector('.midi-loop-snap-select') : null;
+      if (snapSelect) {
+        if (modData.params.loop_snap) {
+          snapSelect.value = modData.params.loop_snap;
+        }
+        snapSelect.addEventListener('change', (e) => {
+          e.stopPropagation();
+          const val = e.target.value;
+          modData.params.loop_snap = val;
+          if (dspMod.setLoopSnap) dspMod.setLoopSnap(val);
+          if (window.onPatchModified) window.onPatchModified();
+          if (fileSubEl && dspMod.midiData) {
+            const curDur = dspMod.totalDuration || dspMod.midiData.duration || 1.0;
+            const isSingle = (dspMod.midiData.tracks.length <= 1);
+            fileSubEl.textContent = `${dspMod.midiData.bpm} BPM • ${curDur.toFixed(1)}s • ${dspMod.midiData.tracks.length} track${isSingle ? ' (1-TRK)' : 's'}`;
+          }
         });
       }
 
@@ -1172,6 +1722,7 @@ class ModularRackUI {
   }
 
   removeModule(id) {
+    if (id === 'mixer_1' || id === 'mixer') return;
     this.dsp.removeModule(id);
     const el = this.rack.querySelector(`.module-panel[data-id="${id}"]`);
     if (el) el.remove();
@@ -1181,6 +1732,9 @@ class ModularRackUI {
   }
 
   addModule(type, targetRow = null) {
+    if (type === 'mixer') {
+      return this.modulesState.find(m => m.id === 'mixer_1');
+    }
     const id = `${type}_${Date.now().toString(36).substr(-4)}`;
     const def = MODULE_DEFINITIONS[type];
     const params = {};
@@ -1198,14 +1752,58 @@ class ModularRackUI {
   }
 
   loadState(state) {
-    this.rack.innerHTML = '';
+    if (!this.modularRows) {
+      this.initMasterRack();
+    }
+    this.modularRows.innerHTML = '';
     this.dsp.clearAll();
+    this.cables.cables = [];
     this.modulesState = [];
 
-    // Determine total rows needed
+    // 1. Locate or create mixer_1
+    let mixerMod = null;
+    if (state.modules) {
+      mixerMod = state.modules.find(m => m.type === 'mixer' || m.id === 'mixer_1');
+    }
+
+    const defaultMixerParams = {
+      ch1_gain: 0.85, ch1_pan: 0.0, ch1_mute: false, ch1_solo: false,
+      ch2_gain: 0.85, ch2_pan: 0.0, ch2_mute: false, ch2_solo: false,
+      ch3_gain: 0.0,  ch3_pan: 0.0, ch3_mute: false, ch3_solo: false,
+      ch4_gain: 0.0,  ch4_pan: 0.0, ch4_mute: false, ch4_solo: false,
+      ch5_gain: 0.0,  ch5_pan: 0.0, ch5_mute: false, ch5_solo: false,
+      ch6_gain: 0.0,  ch6_pan: 0.0, ch6_mute: false, ch6_solo: false,
+      ch7_gain: 0.0,  ch7_pan: 0.0, ch7_mute: false, ch7_solo: false,
+      ch8_gain: 0.0,  ch8_pan: 0.0, ch8_mute: false, ch8_solo: false,
+      master_vol: (mixerMod && mixerMod.params && mixerMod.params.master_vol !== undefined) ? mixerMod.params.master_vol : 0.85
+    };
+
+    const mixerParams = Object.assign({}, defaultMixerParams, mixerMod ? mixerMod.params : {});
+    
+    // Ensure mixer module exists in DSP
+    let dspMixer = this.dsp.modules.get('mixer_1');
+    if (!dspMixer) {
+      dspMixer = this.dsp.createModule('mixer', 'mixer_1', mixerParams);
+    } else {
+      for (const [k, v] of Object.entries(mixerParams)) {
+        dspMixer.setParam(k, v);
+      }
+    }
+
+    const mixerStateObj = {
+      id: 'mixer_1',
+      type: 'mixer',
+      row: -1,
+      params: mixerParams
+    };
+    this.modulesState.push(mixerStateObj);
+    this.updateMasterConsoleUi(mixerParams);
+
+    // 2. Determine modular rows needed for non-mixer modules
     let maxRow = 0;
     if (state.modules) {
       for (const m of state.modules) {
+        if (m.type === 'mixer' || m.id === 'mixer_1') continue;
         if (m.row !== undefined && m.row > maxRow) maxRow = m.row;
       }
     }
@@ -1214,14 +1812,17 @@ class ModularRackUI {
       this.ensureRow(r);
     }
 
-    // Instantiate modules
-    for (const m of state.modules) {
-      this.dsp.createModule(m.type, m.id, m.params || {});
-      this.modulesState.push(m);
-      this.renderModule(m);
+    // 3. Instantiate non-mixer modules
+    if (state.modules) {
+      for (const m of state.modules) {
+        if (m.type === 'mixer' || m.id === 'mixer_1') continue;
+        this.dsp.createModule(m.type, m.id, m.params || {});
+        this.modulesState.push(m);
+        this.renderModule(m);
+      }
     }
 
-    // Connect cables across rows
+    // 4. Connect cables across rows
     setTimeout(() => {
       if (state.cables) {
         for (const c of state.cables) {
@@ -1229,7 +1830,35 @@ class ModularRackUI {
         }
       }
       this.cables.render();
+      this.updateMasterConsolePatchCount();
     }, 60);
+  }
+
+  toggleModuleDrawer(force = null) {
+    const drawer = document.getElementById('module-drawer');
+    if (!drawer) return;
+    const isOpen = force !== null ? force : !drawer.classList.contains('open');
+    drawer.classList.toggle('open', isOpen);
+    document.body.classList.toggle('module-drawer-open', isOpen);
+    const toggleBtn = document.getElementById('toggle-drawer-btn');
+    if (toggleBtn) toggleBtn.classList.toggle('active', isOpen);
+    setTimeout(() => { if (this.cables) this.cables.render(); }, 260);
+  }
+
+  toggleMidiDrawer(force = null) {
+    const drawer = document.getElementById('midi-drawer');
+    if (!drawer) return;
+    const isOpen = force !== null ? force : !drawer.classList.contains('open');
+    drawer.classList.toggle('open', isOpen);
+    document.body.classList.toggle('midi-drawer-open', isOpen);
+    const toggleBtn = document.getElementById('midi-drawer-btn');
+    if (toggleBtn) toggleBtn.classList.toggle('active', isOpen);
+    setTimeout(() => { if (this.cables) this.cables.render(); }, 260);
+  }
+
+  closeAllDrawers() {
+    this.toggleModuleDrawer(false);
+    this.toggleMidiDrawer(false);
   }
 
   initDrawer() {
@@ -1239,9 +1868,8 @@ class ModularRackUI {
     const closeBtn = document.getElementById('close-drawer-btn');
     const filterContainer = document.getElementById('catalog-filters');
 
-    const toggle = () => { drawer.classList.toggle('open'); };
-    if (toggleBtn) toggleBtn.addEventListener('click', toggle);
-    if (closeBtn) closeBtn.addEventListener('click', toggle);
+    if (toggleBtn) toggleBtn.addEventListener('click', () => this.toggleModuleDrawer());
+    if (closeBtn) closeBtn.addEventListener('click', () => this.toggleModuleDrawer(false));
     const titleEl = drawer.querySelector('.drawer-title');
     if (titleEl) {
       titleEl.textContent = `MODULE CATALOG (${Object.keys(MODULE_DEFINITIONS).length} MODULES)`;
@@ -1280,6 +1908,7 @@ class ModularRackUI {
 
       const card = document.createElement('div');
       card.classList.add('catalog-card');
+      card.setAttribute('draggable', 'true');
       card.innerHTML = `
         <div class="card-header">
           <span class="card-name">${def.name}</span>
@@ -1288,9 +1917,18 @@ class ModularRackUI {
         <div class="card-desc">${def.desc}</div>
         <div class="card-specs">Width: ${def.width}px &bull; Ins: ${def.inputs.length} &bull; Outs: ${def.outputs.length}</div>
       `;
+      card.addEventListener('dragstart', (e) => {
+        document.body.classList.add('dragging-active');
+        e.dataTransfer.setData('text/module-type', type);
+        e.dataTransfer.setData('text/plain', type);
+        e.dataTransfer.effectAllowed = 'copy';
+      });
+      card.addEventListener('dragend', () => {
+        document.body.classList.remove('dragging-active');
+      });
       card.addEventListener('click', () => {
         this.addModule(type);
-        drawer.classList.remove('open');
+        this.toggleModuleDrawer(false);
       });
       catalogList.appendChild(card);
     }
@@ -1314,9 +1952,8 @@ class ModularRackUI {
     let searchResultsData = [];
     let starterRiffsData = [];
 
-    const toggle = () => { drawer.classList.toggle('open'); };
-    if (toggleBtn) toggleBtn.addEventListener('click', toggle);
-    if (closeBtn) closeBtn.addEventListener('click', toggle);
+    if (toggleBtn) toggleBtn.addEventListener('click', () => this.toggleMidiDrawer());
+    if (closeBtn) closeBtn.addEventListener('click', () => this.toggleMidiDrawer(false));
 
     // Single / Multi Filter Pills in Left Drawer
     const filterPills = drawer.querySelectorAll('.midi-filter-pill');
@@ -1392,15 +2029,21 @@ class ModularRackUI {
         `;
 
         card.addEventListener('dragstart', (e) => {
+          document.body.classList.add('dragging-active');
           const payload = JSON.stringify({
             title: item.title,
             download_url: item.download_url,
             is_starter: isStarter,
             is_single_track: isSingle,
           });
+          e.dataTransfer.setData('text/midi-payload', payload);
           e.dataTransfer.setData('application/json', payload);
           e.dataTransfer.setData('text/plain', payload);
           e.dataTransfer.effectAllowed = 'copy';
+        });
+
+        card.addEventListener('dragend', () => {
+          document.body.classList.remove('dragging-active');
         });
 
         const loadBtn = card.querySelector('.main-load-btn');
@@ -1549,12 +2192,20 @@ class ModularRackUI {
         }
       } else if (e.code === 'KeyS') {
         e.preventDefault();
-        this.flashSyncBtn();
-        this.dsp.syncDownbeat();
+        if (e.shiftKey) {
+          this.snapAllBpm();
+        } else {
+          this.flashSyncBtn();
+          this.dsp.syncDownbeat();
+        }
+      } else if (e.code === 'KeyB') {
+        e.preventDefault();
+        this.snapAllBpm();
+      } else if (e.code === 'Escape') {
+        this.closeAllDrawers();
       } else if (e.code === 'KeyM') {
         e.preventDefault();
-        const midiDrawer = document.getElementById('midi-drawer');
-        if (midiDrawer) midiDrawer.classList.toggle('open');
+        this.toggleMidiDrawer();
       } else if (e.code === 'KeyC') {
         e.preventDefault();
         const ghost = this.cables.toggleGhost();
@@ -1567,8 +2218,7 @@ class ModularRackUI {
         this.toggleTvRackMode();
       } else if (e.code === 'Tab' || e.code === 'KeyD') {
         e.preventDefault();
-        const drawer = document.getElementById('module-drawer');
-        if (drawer) drawer.classList.toggle('open');
+        this.toggleModuleDrawer();
       } else if (e.code === 'KeyR') {
         // Randomize selected module
         if (this.selectedModuleEl) {
@@ -1628,6 +2278,112 @@ class ModularRackUI {
     setTimeout(() => {
       btn.classList.remove('synced');
     }, 250);
+  }
+
+  flashSnapBtn() {
+    const btn = document.getElementById('snap-bpm-btn');
+    if (!btn) return;
+    btn.classList.add('snapped');
+    setTimeout(() => {
+      btn.classList.remove('snapped');
+    }, 250);
+  }
+
+  setKnobValue(knobEl, val) {
+    if (!knobEl) return;
+    const min = parseFloat(knobEl.dataset.min);
+    const max = parseFloat(knobEl.dataset.max);
+    const unit = knobEl.dataset.unit || '';
+    const clamped = Math.max(min, Math.min(max, val));
+    knobEl.dataset.val = clamped;
+    const dial = knobEl.querySelector('.knob-dial');
+    if (dial) {
+      const pct = (clamped - min) / (max - min);
+      dial.style.transform = `rotate(${-140 + pct * 280}deg)`;
+    }
+    const wrap = knobEl.closest('.knob-wrap');
+    if (wrap) {
+      const valSpan = wrap.querySelector('.knob-value');
+      if (valSpan) valSpan.textContent = this.formatVal(clamped, unit);
+      wrap.classList.add('knob-snapped');
+      setTimeout(() => wrap.classList.remove('knob-snapped'), 600);
+    }
+  }
+
+  snapSingleModule(modId) {
+    const modData = this.modules.find(m => m.id === modId);
+    if (!modData) return;
+
+    const masterInput = document.getElementById('master-bpm-input');
+    const masterBpm = masterInput ? parseInt(masterInput.value, 10) : this.dsp.masterBpm;
+
+    const ratioSelect = document.getElementById('snap-ratio-select');
+    let ratioVal = ratioSelect ? ratioSelect.value : '1';
+
+    if (modData.type === 'midi_player' && modData.params.ratio && modData.params.ratio !== 'free') {
+      const ratioMap = {
+        '1x_full': 1.0,
+        '1/2_half': 0.5,
+        '1/4_quarter': 0.25,
+        '1/8_8th': 0.125,
+        '1/16_16th': 0.0625,
+        '2x_double': 2.0
+      };
+      ratioVal = ratioMap[modData.params.ratio] || 1.0;
+    }
+
+    const res = this.dsp.snapModuleBpm(modId, masterBpm, ratioVal);
+    if (res) {
+      modData.params[res.type] = res.value;
+      const el = document.getElementById(`mod-${modId}`);
+      if (el) {
+        const knobEl = el.querySelector(`.knob-wrap[data-param="${res.type}"] .knob`);
+        if (knobEl) this.setKnobValue(knobEl, res.value);
+        const snapBtn = el.querySelector('.mod-snap-btn');
+        if (snapBtn) {
+          snapBtn.classList.add('snapped');
+          setTimeout(() => snapBtn.classList.remove('snapped'), 250);
+        }
+      }
+      if (window.onPatchModified) window.onPatchModified();
+    }
+  }
+
+  snapAllBpm(overrideRatio = null) {
+    const masterInput = document.getElementById('master-bpm-input');
+    const ratioSelect = document.getElementById('snap-ratio-select');
+
+    let baseBpm = masterInput ? parseInt(masterInput.value, 10) : this.dsp.masterBpm;
+    let ratio = overrideRatio !== null ? overrideRatio : (ratioSelect ? ratioSelect.value : '1');
+
+    this.flashSnapBtn();
+    this.flashSyncBtn();
+
+    const result = this.dsp.snapAllBpm(baseBpm, ratio, true);
+    if (!result) return;
+
+    if (masterInput && result.masterBpm) {
+      masterInput.value = result.masterBpm;
+    }
+
+    for (const item of result.snapped) {
+      const modData = this.modules.find(m => m.id === item.id);
+      if (modData) {
+        modData.params[item.param] = item.value;
+      }
+      const el = document.getElementById(`mod-${item.id}`);
+      if (el) {
+        const knobEl = el.querySelector(`.knob-wrap[data-param="${item.param}"] .knob`);
+        if (knobEl) this.setKnobValue(knobEl, item.value);
+        const snapBtn = el.querySelector('.mod-snap-btn');
+        if (snapBtn) {
+          snapBtn.classList.add('snapped');
+          setTimeout(() => snapBtn.classList.remove('snapped'), 250);
+        }
+      }
+    }
+
+    if (window.onPatchModified) window.onPatchModified();
   }
 
   startOscilloscope() {

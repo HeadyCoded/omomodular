@@ -144,5 +144,17 @@ def test_api_midi_search_single_filter(client):
     assert all(item["is_single_track"] is True for item in data["results"])
 
 
+def test_api_midi_starters_validity(client):
+    res = client.get("/api/midi/starters")
+    assert res.status_code == 200
+    starters = res.json()
+    assert len(starters) >= 15
+    for s in starters:
+        assert s["download_url"]
+        dl = client.get(s["download_url"])
+        assert dl.status_code == 200
+        assert dl.content[:4] == b"MThd"
+
+
 
 

@@ -1,5 +1,73 @@
 # Changelog
 
+## 0.7.2 — 2026-09-19
+- **Push-Docking Drawer Layout (Zero Occlusion):**
+  - Converted `#rack-container` from an under-drawer background surface into a dynamically push-docked workspace: opening the left MIDI drawer smoothly shifts the rack (`margin-left: 380px; width: calc(100% - 380px);`) and opening the right Module catalog shifts the rack (`margin-right: 370px; width: calc(100% - 370px);`).
+  - Completely eliminates module and rack occlusion: all modules, controls, jacks, and the top Master Mixing Console remain 100% visible and un-obscured right alongside open drawers.
+  - Responsive safety clamp: automatically scales margins down on narrower screens (< 1100px) so racks never get compressed out of usability.
+  - Synchronous cable re-rendering: SVG patch cables automatically update their curves during and after drawer transition animations, keeping patch cords firmly attached to jacks during docking.
+- **Drag-Active Ghosting & Penetrating Drop Targets:**
+  - Added `body.dragging-active` states: when dragging any MIDI card or Module catalog card, open drawers smoothly fade to 55% opacity with `pointer-events: none` and stripped drop-shadows.
+  - Prevents side drawers from accidentally swallowing mouse drag events or breaking HTML5 drop targets on underlying racks.
+- **Universal Drop Target Zones:**
+  - Expanded MIDI Player drop zones from the narrow 35px titlebar to the entire module panel (`.module-panel[data-type="midi_player"]`), accompanied by glowing cyan dashed outline and box-shadow feedback (`.midi-panel-drag-over`).
+  - Row slot drop handling: dragging a MIDI card directly onto any empty rack row slot (`.rack-modules-slot`) automatically loads it into that row's MIDI player, or automatically spawns a new MIDI File Player in that row if one does not exist yet.
+  - Catalog module cards (`.catalog-card`) are now draggable: drag any module type from the catalog drawer and drop it directly onto the desired rack row slot.
+- **Keyboard & UX Shortcuts:**
+  - Added `Escape` key handling to instantly close all open drawers and return full width to the rack workspace.
+
+## 0.7.1 — 2026-09-19
+- **Horizontal Viewport Lock & Side-to-Side Snap:**
+  - Enforced strict horizontal containment (`overflow-x: hidden; width: 100%; max-width: 100%; box-sizing: border-box;`) across `#rack-container`, `#rack`, `.rack-row`, `.master-console-row`, and `#modular-rows`.
+  - Removed fixed and `max-content` minimum widths that previously expanded beyond viewport width due to rail screw strips (48 screws per rail) or wide modules.
+  - Made the 8 Master Mixing Console channel strips dynamically flexible (`flex: 1 1 70px; min-width: 58px; max-width: 105px;`), ensuring the console plate and all modular rows snap to fit 100% of any display resolution (including 1080p and 80-inch TV modes) with zero horizontal scrollbar.
+- **Edge Autoscrolling for Multi-Row Vertical Cable Patching:**
+  - Solved out-of-reach socket connections between distant rows (e.g. patching from Row 2 or Row 3 up to the top Master Console): dragging a cable end within 90px of the viewport edge or completely off-screen initiates smooth, continuous autoscrolling via `requestAnimationFrame`.
+  - Dynamic scroll acceleration: scrolling velocity scales proportionally from 4px/frame up to 32px/frame based on how far off-screen the cable end is dragged.
+  - Viewport-relative jack coordinate re-anchoring: `updateDragCoordsOnScroll` recalculates origin jack coordinates against the SVG viewbox on every scroll frame, keeping plugged jacks firmly seated while the dragged plug stays locked under the cursor as rails travel beneath it.
+  - Added glowing visual guide overlays (`.rack-scroll-edge.top` and `.rack-scroll-edge.bottom`) that illuminate with directional chevrons when autoscroll is actively moving the rack.
+- **Bidirectional Cable Dragging:**
+  - Upgraded jack event listeners to allow dragging cables from OUT to IN or from IN to OUT, with one-click un-patching on already-connected inputs.
+
+## 0.7.0 — 2026-09-19
+- **Permanent Full-Length Top Master Mixing Console Rack:**
+  - Upgraded the master mixer from a cramped 4-channel module inside arbitrary rows into a dedicated, full-length 8-channel master console rack permanently anchored along the top of the Eurorack workspace.
+  - 8 stereo input channel strips (IN 1 through IN 8) featuring knurled hex jacks, live signal-present LEDs, per-channel [M] Mute and [S] Solo buttons, rotary Pan dials (L 100% to R 100%, center detent C), and Level gain controls (0.0 to 1.2).
+  - Master Output Section: integrated live summed waveform CRT oscilloscope (1024 FFT buffer), rotary Master Volume dial, and active brickwall dynamics protection limiter LED.
+  - Identity & Utility Plate: Model 800-M branding, dynamic patched channels counter badge (e.g. '3 / 8 PATCHED'), and [FLAT MIX] button to instantly reset all channels to unity level (0.85) and center pan.
+  - Zero-clutter modular rows: frees up all modular rail rows below (ROW 1, ROW 2, etc.) exclusively for sound generators and audio processors.
+  - Backward-compatible patch state & droop physics: existing presets and saved patches targeting mixer_1 (in1 through in4) cleanly connect to the top console rack with realistic drooping cables, while channels 5 through 8 remain open for new sound sources.
+
+## 0.6.4 — 2026-09-19
+- **Global Master BPM Engine & Instant Tempo Snapping:**
+  - Added Master BPM input (30 to 260 BPM) and interactive Snap Ratio selector (1x FULL, 1/2 HALF, 1/4 QUARTER, 1/8 8th, 1/16 16th, 2x DOUBLE, MATCH MIDI) to top rack header bar.
+  - Added [SNAP BPM] button and 'B' keyboard shortcut to snap all sound generators (Analog Drums 808, Acid 303 Voice, Sequencer, MIDI File Player) in mathematical lockstep with downbeat synchronization.
+  - Added 'Shift+S' shortcut to snap all module tempos and immediately realign downbeats.
+- **Per-Module Tempo Snap Controls:**
+  - Added individual lightning [SNAP] buttons to headers of tempo-governed modules (percussion, acid303, sequencer, midi_player) for snapping individual sources to the master tempo independently.
+  - Physical knob rotation and animated feedback: snapping dynamically updates internal parameters, rotates the .knob-dial CSS transform (-140deg to +140deg), updates value text badges, and triggers a glowing .knob-snapped animation pulse.
+- **MIDI File Player Tempo Integration:**
+  - Added 'BPM SNAP RATIO' control to MIDI Player faceplate (FREE, 1x FULL, 1/2 HALF, 1/4 QUARTER, 1/8 8th, 1/16 16th, 2x DOUBLE) that locks the SPEED rate dial to (masterBpm / midiBpm) * ratio.
+  - Added [USE {bpm} BPM] one-click button on the MIDI file header badge to promote detected MIDI tempo to Master Rack BPM and snap all modules to match the song.
+
+## 0.6.3 — 2026-09-19
+- **Seamless MIDI Looping & Silence Trimming:**
+  - Fixed lookahead scheduler wrap gap: previously, when `currentTime` wrapped past `totalDuration`, downbeat notes starting near `0.000s` fell behind the window start and were skipped or delayed, creating a jarring pause on every repetition.
+  - Implemented boundary-spanning lookahead slices: when the lookahead window crosses `totalDuration`, notes at the head of cycle `N + 1` are pre-scheduled ahead of time directly onto the Web Audio hardware clock queue with zero latency.
+  - Added automatic leading silence normalization in `midi_parser.js`: detects `minStartTick` across all tracks and offsets all events so the first note begins immediately at `0.000s`.
+  - Added smart musical bar & beat loop quantizer: snaps loop duration to the nearest integer measure or beat if notes release slightly before the barline, eliminating truncated bars and trailing dead space.
+  - Added interactive `[SNAP: AUTO]` dropdown to the MIDI Player transport row (`AUTO`, `1 BAR`, `2 BARS`, `4 BARS`, `8 BARS`, `12 BARS`, `16 BARS`, `EXACT RAW`) to lock any loop to exact modular bar lengths.
+  - Dynamic duration re-calculation: isolating or muting tracks automatically recalculates the loop duration based on the active stems.
+
+## 0.6.2 — 2026-09-19
+- **MIDI Voice Gain Staging & Volume Boost:**
+  - Fixed severe internal attenuation where `noteGain` was scaled to `velNormalized * 0.22`, yielding ~0.07 peak amplitude (-23 dB down compared to VCO, 303, and drum modules).
+  - Implemented dynamic gain staging with baseline velocity sensitivity: `(0.35 + 0.65 * velNormalized) * 0.75 * gainBoost * trackVol`.
+  - Added analog-style soft-knee saturation curve (`WaveShaperNode` with `tanh(x * 1.3)` transfer function) before output gain, allowing punchy modular levels (~0.85-1.1 peak) without harsh digital clipping during polyphonic chords.
+  - Added dedicated `BOOST` knob (0.5x to 4.0x, default 1.8x) and expanded `LEVEL` knob range (0 to 2.0x, default 1.0) on the module faceplate.
+  - Added per-track volume sliders (`0%` to `250%`) to every track row in the live layer inspector with isolated mousedown handlers.
+  - Updated factory presets (`Daft Modular Funk`) with matching gain staging.
+
 ## 0.6.1 — 2026-09-19
 - **MIDI Search Engine Overhaul & Stale Process Fix:**
   - Fixed BitMidi search query mutation that appended `" riff"` and discarded legitimate artist/song matches (e.g. Daft Punk, Mario, Queen, Bach).

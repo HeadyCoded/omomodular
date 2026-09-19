@@ -893,7 +893,8 @@ FACTORY_PRESETS: dict[str, dict[str, Any]] = {
                 "params": {
                     "rate": 1.0,
                     "transpose": 0,
-                    "level": 0.85,
+                    "gain": 1.8,
+                    "level": 1.0,
                     "timbre": "poly_epiano",
                     "starter": "Daft Punk - Around The World.mid",
                 },

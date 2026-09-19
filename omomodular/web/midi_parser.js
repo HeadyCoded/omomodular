@@ -199,13 +199,51 @@ function parseMidiFile(arrayBuffer, filename = '') {
   const secondsPerTick = defaultTempo / 1000000 / ppq;
   const detectedBpm = Math.round(60000000 / defaultTempo);
 
+  // Find minimum start tick across all tracks to trim leading silence / blank start
+  let minStartTick = Infinity;
+  for (const trk of rawTracks) {
+    for (const n of trk.notes) {
+      if (n.startTick < minStartTick) minStartTick = n.startTick;
+    }
+  }
+  if (minStartTick === Infinity) minStartTick = 0;
+
   let maxDuration = 0;
   for (const trk of rawTracks) {
     for (const n of trk.notes) {
-      n.start = n.startTick * secondsPerTick;
+      // Shift so the very first note starts precisely on downbeat at tick 0 / 0.0s
+      const shiftedTick = Math.max(0, n.startTick - minStartTick);
+      n.start = shiftedTick * secondsPerTick;
       n.duration = Math.max(0.04, n.durationTicks * secondsPerTick);
       if (n.start + n.duration > maxDuration) {
         maxDuration = n.start + n.duration;
+      }
+    }
+  }
+
+  // Musical loop quantize: snap duration to whole bars or beats if notes release cleanly near boundary
+  const beatSec = 60 / detectedBpm;
+  const barSec = beatSec * 4;
+  let smartDuration = maxDuration;
+  if (maxDuration > 0) {
+    const barsFloat = maxDuration / barSec;
+    const nearestBars = Math.round(barsFloat);
+    if (nearestBars >= 1) {
+      const barTarget = nearestBars * barSec;
+      const barDiff = maxDuration - barTarget;
+      // If notes end up to 1 beat before barline (release), or within 0.35 beat over
+      if (barDiff >= -beatSec && barDiff <= 0.35 * beatSec) {
+        smartDuration = barTarget;
+      }
+    } else {
+      const beatsFloat = maxDuration / beatSec;
+      const nearestBeats = Math.round(beatsFloat);
+      if (nearestBeats >= 1) {
+        const beatTarget = nearestBeats * beatSec;
+        const beatDiff = maxDuration - beatTarget;
+        if (Math.abs(beatDiff) <= 0.35 * beatSec) {
+          smartDuration = beatTarget;
+        }
       }
     }
   }
@@ -215,7 +253,8 @@ function parseMidiFile(arrayBuffer, filename = '') {
   return {
     title,
     bpm: detectedBpm || 120,
-    duration: maxDuration,
+    duration: smartDuration,
+    rawDuration: maxDuration,
     tracks: rawTracks,
   };
 }

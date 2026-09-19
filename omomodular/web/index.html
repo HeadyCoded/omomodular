@@ -113,6 +113,137 @@
       transform: scale(1.06);
     }
 
+    /* Header Master BPM & Snap Group */
+    .header-bpm-group {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      background: var(--omo-surface);
+      border: 1px solid var(--omo-border);
+      border-radius: 4px;
+      padding: 2px 5px;
+    }
+
+    .header-bpm-label {
+      font-size: 8px;
+      font-weight: 800;
+      color: var(--omo-accent);
+      letter-spacing: 0.5px;
+    }
+
+    .header-bpm-input {
+      width: 44px;
+      height: 20px;
+      background: var(--omo-bg);
+      border: 1px solid var(--omo-border);
+      border-radius: 3px;
+      color: var(--omo-fg);
+      font-family: inherit;
+      font-size: 11px;
+      font-weight: 700;
+      text-align: center;
+      padding: 0 2px;
+      outline: none;
+      transition: all 0.15s ease;
+    }
+
+    .header-bpm-input:focus {
+      border-color: var(--omo-accent);
+      box-shadow: 0 0 6px rgba(122, 162, 247, 0.4);
+    }
+
+    .header-snap-ratio {
+      height: 20px;
+      font-size: 8px;
+      font-weight: 700;
+      padding: 0 4px;
+      background: var(--omo-surface-2);
+      border: 1px solid var(--omo-border);
+      border-radius: 3px;
+      color: var(--omo-cyan);
+      outline: none;
+      cursor: pointer;
+    }
+
+    .snap-bpm-btn {
+      font-size: 8px;
+      font-weight: 800;
+      padding: 2px 7px;
+      height: 20px;
+      background: rgba(122, 162, 247, 0.15);
+      border: 1px solid var(--omo-accent);
+      color: var(--omo-accent);
+      letter-spacing: 0.3px;
+      cursor: pointer;
+      border-radius: 3px;
+      transition: all 0.15s ease;
+    }
+
+    .snap-bpm-btn:hover {
+      background: var(--omo-accent);
+      color: var(--omo-bg);
+      box-shadow: 0 0 8px var(--omo-accent);
+    }
+
+    .snap-bpm-btn.snapped {
+      background: var(--omo-ok) !important;
+      border-color: var(--omo-ok) !important;
+      color: var(--omo-bg) !important;
+      box-shadow: 0 0 12px var(--omo-ok);
+      transform: scale(1.05);
+    }
+
+    .mod-snap-btn {
+      background: transparent;
+      border: none;
+      color: var(--omo-dim);
+      font-size: 11px;
+      cursor: pointer;
+      padding: 0 3px;
+      line-height: 1;
+      transition: all 0.15s ease;
+    }
+    .mod-snap-btn:hover {
+      color: var(--omo-yellow);
+      text-shadow: 0 0 6px var(--omo-yellow);
+    }
+    .mod-snap-btn.snapped {
+      color: var(--omo-ok);
+      text-shadow: 0 0 8px var(--omo-ok);
+      transform: scale(1.2);
+    }
+
+    .knob-wrap.knob-snapped .knob-dial {
+      box-shadow: 0 0 10px var(--omo-accent), inset 0 0 6px var(--omo-accent);
+      border-color: var(--omo-accent);
+      transition: all 0.2s ease;
+    }
+    .knob-wrap.knob-snapped .knob-value {
+      color: var(--omo-accent);
+      font-weight: 700;
+      text-shadow: 0 0 6px var(--omo-accent);
+    }
+
+    .midi-use-bpm-btn {
+      font-size: 7px;
+      font-weight: 700;
+      font-family: inherit;
+      background: rgba(122, 162, 247, 0.15);
+      border: 1px solid var(--omo-accent);
+      color: var(--omo-accent);
+      border-radius: 2px;
+      padding: 1px 4px;
+      cursor: pointer;
+      line-height: 1.2;
+      transition: all 0.15s ease;
+      flex-shrink: 0;
+    }
+    .midi-use-bpm-btn:hover {
+      background: var(--omo-accent);
+      color: var(--omo-bg);
+      box-shadow: 0 0 6px var(--omo-accent);
+    }
+
     .header-btn.mute-btn {
       color: var(--omo-ok);
       border-color: var(--omo-ok);
@@ -157,10 +288,77 @@
     #rack-container {
       flex: 1;
       position: relative;
-      overflow: auto;
+      overflow-x: hidden;
+      overflow-y: auto;
+      width: 100%;
+      max-width: 100%;
+      box-sizing: border-box;
       background: var(--omo-rail-bg);
       display: flex;
       flex-direction: column;
+      transition: margin-left 0.25s cubic-bezier(0.1, 0.9, 0.2, 1),
+                  margin-right 0.25s cubic-bezier(0.1, 0.9, 0.2, 1),
+                  width 0.25s cubic-bezier(0.1, 0.9, 0.2, 1);
+    }
+
+    body.midi-drawer-open #rack-container {
+      margin-left: 380px;
+      width: calc(100% - 380px);
+      max-width: calc(100% - 380px);
+    }
+
+    body.module-drawer-open #rack-container {
+      margin-right: 370px;
+      width: calc(100% - 370px);
+      max-width: calc(100% - 370px);
+    }
+
+    body.midi-drawer-open.module-drawer-open #rack-container {
+      margin-left: 380px;
+      margin-right: 370px;
+      width: calc(100% - 750px);
+      max-width: calc(100% - 750px);
+    }
+
+    @media (max-width: 1100px) {
+      body.midi-drawer-open #rack-container {
+        margin-left: 280px;
+        width: calc(100% - 280px);
+        max-width: calc(100% - 280px);
+      }
+      body.module-drawer-open #rack-container {
+        margin-right: 270px;
+        width: calc(100% - 270px);
+        max-width: calc(100% - 270px);
+      }
+    }
+
+    /* Drawer Translucency & Drop Highlights during Active Drag */
+    body.dragging-active #midi-drawer,
+    body.dragging-active #module-drawer {
+      opacity: 0.55;
+      pointer-events: none;
+      box-shadow: none;
+      transition: opacity 0.15s ease;
+    }
+
+    .module-panel[data-type="midi_player"].midi-panel-drag-over {
+      outline: 2px dashed var(--omo-cyan) !important;
+      outline-offset: -2px;
+      box-shadow: 0 0 24px rgba(125, 207, 255, 0.6), inset 0 0 16px rgba(125, 207, 255, 0.25) !important;
+      border-color: var(--omo-cyan) !important;
+    }
+
+    .rack-modules-slot.slot-midi-drag-over {
+      background: rgba(125, 207, 255, 0.12) !important;
+      outline: 2px dashed var(--omo-cyan) !important;
+      outline-offset: -4px;
+    }
+
+    .rack-modules-slot.slot-module-drag-over {
+      background: rgba(187, 154, 247, 0.12) !important;
+      outline: 2px dashed var(--omo-accent) !important;
+      outline-offset: -4px;
     }
 
     #rack {
@@ -168,7 +366,9 @@
       flex-direction: column;
       gap: 20px;
       padding: 14px 16px 16px 16px;
-      min-width: max-content;
+      width: 100%;
+      max-width: 100%;
+      box-sizing: border-box;
       position: relative;
     }
 
@@ -180,7 +380,9 @@
       border: 1px solid var(--omo-border);
       border-radius: 6px;
       box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.6), 0 4px 12px rgba(0, 0, 0, 0.3);
-      min-width: max-content;
+      width: 100%;
+      max-width: 100%;
+      box-sizing: border-box;
       transition: border-color 0.2s ease;
     }
 
@@ -282,8 +484,11 @@
       align-items: stretch;
       padding: 8px 12px;
       gap: 12px;
-      min-width: 800px;
+      width: 100%;
+      max-width: 100%;
+      box-sizing: border-box;
       min-height: 380px;
+      overflow-x: hidden;
       background: rgba(0, 0, 0, 0.2);
     }
 
@@ -999,6 +1204,28 @@
       color: var(--omo-accent);
     }
 
+    .midi-loop-snap-select {
+      font-size: 8px;
+      font-weight: 700;
+      font-family: inherit;
+      background: var(--omo-surface-2);
+      color: var(--omo-fg);
+      border: 1px solid var(--omo-border);
+      border-radius: 3px;
+      padding: 0 4px;
+      height: 20px;
+      outline: none;
+      cursor: pointer;
+      flex: 1.2;
+      transition: all 0.15s ease;
+    }
+
+    .midi-loop-snap-select:hover,
+    .midi-loop-snap-select:focus {
+      border-color: var(--omo-accent);
+      color: var(--omo-accent);
+    }
+
     .midi-tracks-container {
       display: flex;
       flex-direction: column;
@@ -1049,6 +1276,30 @@
       color: var(--omo-fg);
       font-weight: 600;
     }
+
+    .midi-track-vol {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 48px;
+      height: 4px;
+      border-radius: 2px;
+      background: var(--omo-border);
+      outline: none;
+      flex-shrink: 0;
+      cursor: pointer;
+    }
+
+    .midi-track-vol::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--omo-accent);
+      cursor: pointer;
+      box-shadow: 0 0 3px var(--omo-accent);
+    }
+
 
     .midi-track-count {
       font-size: 8px;
@@ -1221,11 +1472,510 @@
       color: #bb9af7;
     }
 
+    /* ---------------- Permanent Top Master Mixing Console Rack ---------------- */
+    .master-console-row {
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      background: linear-gradient(180deg, #171822 0%, #12131b 60%, #0d0e14 100%);
+      border: 1px solid var(--omo-border);
+      border-radius: 6px;
+      box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.7), 0 6px 18px rgba(0, 0, 0, 0.45);
+      margin-bottom: 20px;
+      width: 100%;
+      max-width: 100%;
+      box-sizing: border-box;
+      border-top: 2px solid #7aa2f7;
+    }
+
+    .master-console-tag {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      z-index: 15;
+      background: #181a24;
+      padding: 2px 10px;
+      border-radius: 3px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+      flex-shrink: 0;
+    }
+
+    .master-console-tag .console-led {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #7aa2f7;
+      box-shadow: 0 0 8px #7aa2f7;
+      animation: consoleLedPulse 3s ease-in-out infinite;
+    }
+
+    @keyframes consoleLedPulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.65; transform: scale(0.92); }
+    }
+
+    .master-console-tag .console-title {
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 1.2px;
+      color: #c0caf5;
+    }
+
+    .master-console-tag .console-sub {
+      font-size: 9px;
+      font-weight: 600;
+      color: var(--omo-dim);
+      letter-spacing: 0.8px;
+    }
+
+    .master-console-faceplate {
+      display: flex;
+      align-items: stretch;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 14px;
+      background: radial-gradient(ellipse at 50% 0%, #1d1f2c 0%, #12131c 70%, #0c0d13 100%);
+      min-height: 220px;
+      width: 100%;
+      max-width: 100%;
+      box-sizing: border-box;
+      overflow-x: hidden;
+    }
+
+    /* Section 1: Master Identity & Bus Info */
+    .console-section.console-identity {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      width: 155px;
+      min-width: 120px;
+      flex-shrink: 1;
+      padding: 6px 12px;
+      background: rgba(13, 14, 20, 0.5);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 4px;
+      box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.4);
+      box-sizing: border-box;
+    }
+
+    .console-brand-text {
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 1.5px;
+      color: #7aa2f7;
+      text-shadow: 0 0 10px rgba(122, 162, 247, 0.4);
+    }
+
+    .console-model-badge {
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 1.2px;
+      color: var(--omo-dim);
+      margin-top: 2px;
+    }
+
+    .console-status-row {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin: 12px 0;
+    }
+
+    .console-bus-pill {
+      font-size: 9px;
+      font-weight: 800;
+      letter-spacing: 0.8px;
+      color: #bb9af7;
+      background: rgba(187, 154, 247, 0.12);
+      border: 1px solid rgba(187, 154, 247, 0.35);
+      border-radius: 3px;
+      padding: 3px 6px;
+      text-align: center;
+    }
+
+    .console-patch-count {
+      font-size: 9px;
+      font-weight: 800;
+      letter-spacing: 0.6px;
+      color: var(--omo-dim);
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 3px;
+      padding: 3px 6px;
+      text-align: center;
+      transition: all 0.2s;
+    }
+
+    .console-patch-count.active {
+      color: #73daca;
+      border-color: rgba(115, 218, 202, 0.4);
+      background: rgba(115, 218, 202, 0.1);
+      box-shadow: 0 0 6px rgba(115, 218, 202, 0.2);
+    }
+
+    .console-reset-btn {
+      background: #1a1b26;
+      border: 1px solid #3b4261;
+      border-radius: 4px;
+      color: #a9b1d6;
+      font-family: inherit;
+      font-size: 9px;
+      font-weight: 800;
+      letter-spacing: 0.8px;
+      padding: 6px 8px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .console-reset-btn:hover {
+      border-color: var(--omo-accent);
+      color: #ffffff;
+      background: #24283b;
+    }
+
+    /* Section 2: 8 Channel Strips */
+    .console-channels {
+      display: flex;
+      align-items: stretch;
+      gap: 6px;
+      flex: 1 1 auto;
+      justify-content: center;
+      min-width: 0;
+    }
+
+    .console-strip {
+      flex: 1 1 70px;
+      min-width: 58px;
+      max-width: 105px;
+      background: linear-gradient(180deg, rgba(28, 30, 44, 0.7) 0%, rgba(16, 17, 26, 0.85) 100%);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 4px;
+      box-shadow: inset 0 1px 3px rgba(255, 255, 255, 0.04), 0 2px 6px rgba(0, 0, 0, 0.35);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 8px 4px;
+      gap: 6px;
+      box-sizing: border-box;
+      transition: border-color 0.15s;
+    }
+
+    .console-strip:hover {
+      border-color: rgba(122, 162, 247, 0.25);
+    }
+
+    .strip-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      padding: 0 4px;
+    }
+
+    .strip-label {
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.6px;
+      color: #c0caf5;
+    }
+
+    .strip-signal-led {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #202330;
+      border: 1px solid #3b4261;
+      transition: all 0.2s;
+    }
+
+    .strip-signal-led.active {
+      background: #73daca;
+      border-color: #73daca;
+      box-shadow: 0 0 6px #73daca;
+    }
+
+    .strip-jack-zone {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      margin: 2px 0;
+    }
+
+    .strip-jack-tag {
+      font-size: 8px;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      color: var(--omo-dim);
+    }
+
+    .strip-buttons {
+      display: flex;
+      gap: 4px;
+      width: 100%;
+      justify-content: center;
+      margin: 2px 0;
+    }
+
+    .strip-btn {
+      width: 28px;
+      height: 18px;
+      border-radius: 3px;
+      font-family: inherit;
+      font-size: 9px;
+      font-weight: 800;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.12s;
+    }
+
+    .strip-mute-btn {
+      background: #161720;
+      border: 1px solid #3b4261;
+      color: #565f89;
+    }
+
+    .strip-mute-btn:hover {
+      color: #f7768e;
+      border-color: #f7768e;
+    }
+
+    .strip-mute-btn.active {
+      background: #f7768e;
+      border-color: #f7768e;
+      color: #1a1b26;
+      box-shadow: 0 0 6px rgba(247, 118, 142, 0.6);
+    }
+
+    .strip-solo-btn {
+      background: #161720;
+      border: 1px solid #3b4261;
+      color: #565f89;
+    }
+
+    .strip-solo-btn:hover {
+      color: #e0af68;
+      border-color: #e0af68;
+    }
+
+    .strip-solo-btn.active {
+      background: #e0af68;
+      border-color: #e0af68;
+      color: #1a1b26;
+      box-shadow: 0 0 6px rgba(224, 175, 104, 0.6);
+    }
+
+    .strip-controls {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      width: 100%;
+    }
+
+    .mini-knob-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+    }
+
+    .mini-knob {
+      width: 34px !important;
+      height: 34px !important;
+    }
+
+    .mini-knob .knob-dial {
+      width: 26px !important;
+      height: 26px !important;
+    }
+
+    .mini-control-label {
+      font-size: 8px;
+      font-weight: 800;
+      color: var(--omo-dim);
+      letter-spacing: 0.5px;
+    }
+
+    .mini-knob-val {
+      font-size: 8px;
+      color: var(--omo-text);
+      font-weight: 700;
+    }
+
+    /* Section 3: Master Output & Oscilloscope */
+    .console-section.console-master-out {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      width: 320px;
+      max-width: 320px;
+      min-width: 220px;
+      flex-shrink: 1;
+      padding: 6px 12px;
+      background: rgba(13, 14, 20, 0.5);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 4px;
+      box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.4);
+      box-sizing: border-box;
+    }
+
+    .console-scope-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .scope-header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .scope-title {
+      font-size: 9px;
+      font-weight: 800;
+      letter-spacing: 0.8px;
+      color: var(--omo-dim);
+    }
+
+    .scope-fft-badge {
+      font-size: 8px;
+      font-weight: 700;
+      color: #7dcfff;
+      background: rgba(125, 207, 255, 0.1);
+      padding: 1px 4px;
+      border-radius: 2px;
+    }
+
+    .scope-screen {
+      background: #08090d;
+      border: 1px solid #282b3d;
+      border-radius: 4px;
+      box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.9);
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .scope-screen canvas {
+      display: block;
+      width: 100%;
+      height: 60px;
+    }
+
+    .console-master-dial-wrap {
+      display: flex;
+      align-items: center;
+      justify-content: space-around;
+      padding-top: 6px;
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .console-limiter-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .limiter-led {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #24283b;
+      border: 1.5px solid #414868;
+      box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.8);
+      transition: all 0.15s;
+    }
+
+    .limiter-led.active {
+      background: #f7768e;
+      border-color: #f7768e;
+      box-shadow: 0 0 8px #f7768e;
+    }
+
+    .limiter-label {
+      font-size: 8px;
+      font-weight: 800;
+      color: var(--omo-dim);
+      letter-spacing: 0.6px;
+    }
+
+    #modular-rows {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      width: 100%;
+      max-width: 100%;
+      box-sizing: border-box;
+    }
+
+    /* Edge Autoscroll Visual Guides for Cable Dragging */
+    .rack-scroll-edge {
+      position: fixed;
+      left: 0;
+      right: 0;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      font-family: inherit;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 1.5px;
+      pointer-events: none;
+      z-index: 95;
+      opacity: 0;
+      transition: opacity 0.18s ease, transform 0.18s ease;
+    }
+
+    .rack-scroll-edge.top {
+      top: 48px;
+      background: linear-gradient(180deg, rgba(122, 162, 247, 0.45) 0%, rgba(122, 162, 247, 0.12) 70%, transparent 100%);
+      border-bottom: 2px solid rgba(122, 162, 247, 0.7);
+      color: #7aa2f7;
+      text-shadow: 0 0 10px rgba(122, 162, 247, 0.7);
+      transform: translateY(-8px);
+    }
+
+    .rack-scroll-edge.bottom {
+      bottom: 0;
+      background: linear-gradient(0deg, rgba(122, 162, 247, 0.45) 0%, rgba(122, 162, 247, 0.12) 70%, transparent 100%);
+      border-top: 2px solid rgba(122, 162, 247, 0.7);
+      color: #7aa2f7;
+      text-shadow: 0 0 10px rgba(122, 162, 247, 0.7);
+      transform: translateY(8px);
+    }
+
+    .rack-scroll-edge.active {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .rack-scroll-edge .edge-icon {
+      font-size: 14px;
+      animation: bounceArrow 0.8s ease-in-out infinite alternate;
+    }
+
+    @keyframes bounceArrow {
+      from { transform: translateY(0); }
+      to { transform: translateY(-3px); }
+    }
+
     /* ---------------- TV Rack Simulation Mode ---------------- */
     body.tv-rack-mode #top-bar {
       height: 40px;
       padding: 0 14px;
       background: #0d0e14;
+    }
+    body.tv-rack-mode .rack-scroll-edge.top {
+      top: 40px;
     }
     body.tv-rack-mode .rack-row {
       margin-bottom: 24px;
@@ -1250,6 +2000,25 @@
     body.tv-rack-mode .jack-hole {
       width: 12px;
       height: 12px;
+    }
+    body.tv-rack-mode .master-console-row {
+      margin-bottom: 24px;
+    }
+    body.tv-rack-mode .console-strip {
+      max-width: 120px;
+    }
+    body.tv-rack-mode .mini-knob {
+      width: 40px !important;
+      height: 40px !important;
+    }
+    body.tv-rack-mode .mini-knob .knob-dial {
+      width: 30px !important;
+      height: 30px !important;
+    }
+    body.tv-rack-mode .strip-btn {
+      width: 32px;
+      height: 22px;
+      font-size: 10px;
     }
 
     /* Modal for saving patches */
@@ -1329,6 +2098,20 @@
     </div>
 
     <div class="controls-center">
+      <div class="header-bpm-group" title="Master Rack BPM & Tempo Snap">
+        <span class="header-bpm-label">BPM</span>
+        <input type="number" id="master-bpm-input" class="header-bpm-input" min="30" max="260" value="120" title="Master Tempo in BPM">
+        <select id="snap-ratio-select" class="header-select header-snap-ratio" title="Tempo Snap Division / Multiplier">
+          <option value="1">1x FULL</option>
+          <option value="0.5">1/2 HALF</option>
+          <option value="0.25">1/4 QUARTER</option>
+          <option value="0.125">1/8 8TH</option>
+          <option value="0.0625">1/16 16TH</option>
+          <option value="2">2x DOUBLE</option>
+          <option value="from_midi">MATCH MIDI</option>
+        </select>
+        <button id="snap-bpm-btn" class="header-btn snap-bpm-btn" title="Snap all sound sources (Drums, 303, Seq, MIDI) to Master BPM [B]">&#x26A1; SNAP BPM</button>
+      </div>
       <button id="sync-btn" class="header-btn sync-btn" title="Synchronize all sound sources to downbeat [S]">&#x27F3; SYNC</button>
       <button id="tv-rack-btn" class="header-btn" title="Toggle 80&quot; Fullscreen TV Rack Simulation [F]">&#x26F6; TV RACK</button>
       <button id="midi-drawer-btn" class="header-btn" title="Open MIDI Archive & Search [M]">[M] MIDI</button>
@@ -1376,6 +2159,18 @@
 
   <!-- Eurorack Multi-Row Rails Viewport -->
   <main id="rack-container">
+    <!-- Edge Autoscroll Visual Guides for Cable Dragging -->
+    <div class="rack-scroll-edge top" aria-hidden="true">
+      <span class="edge-icon">&#x25B2;</span>
+      <span>AUTOSCROLL TO MASTER CONSOLE</span>
+      <span class="edge-icon">&#x25B2;</span>
+    </div>
+    <div class="rack-scroll-edge bottom" aria-hidden="true">
+      <span class="edge-icon">&#x25BC;</span>
+      <span>AUTOSCROLL TO LOWER RACKS</span>
+      <span class="edge-icon">&#x25BC;</span>
+    </div>
+
     <div id="rack">
       <!-- .rack-row elements dynamically rendered by ui.js -->
     </div>
@@ -1440,9 +2235,33 @@
       const cables = new CableManager(cablesSvg, rackEl, dsp);
       const ui = new ModularRackUI(rackEl, dsp, cables);
 
+      window.dsp = dsp;
+      window.cables = cables;
+      window.ui = ui;
+
       if (window.location.hash === '#open-drawer' || window.location.search.includes('drawer=1')) {
-        const drawer = document.getElementById('module-drawer');
-        if (drawer) drawer.classList.add('open');
+        ui.toggleModuleDrawer(true);
+      }
+
+      const snapBpmBtn = document.getElementById('snap-bpm-btn');
+      if (snapBpmBtn) {
+        snapBpmBtn.addEventListener('click', () => {
+          ui.snapAllBpm();
+        });
+      }
+
+      const masterBpmInput = document.getElementById('master-bpm-input');
+      if (masterBpmInput) {
+        masterBpmInput.addEventListener('change', (e) => {
+          dsp.setMasterBpm(parseInt(e.target.value, 10) || 120);
+        });
+      }
+
+      const snapRatioSelect = document.getElementById('snap-ratio-select');
+      if (snapRatioSelect) {
+        snapRatioSelect.addEventListener('change', (e) => {
+          dsp.setSnapRatio(e.target.value);
+        });
       }
 
       const syncBtn = document.getElementById('sync-btn');

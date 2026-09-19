@@ -12,6 +12,8 @@ class DspEngine {
     this.analyser = null;
     this.modules = new Map();
     this.activeCables = [];
+    this.masterBpm = 120;
+    this.snapRatio = 1.0;
   }
 
   init() {
@@ -63,6 +65,70 @@ class DspEngine {
     if (!this.ctx || this.isMuted) return;
     const clamped = Math.max(0, Math.min(1.2, val));
     this.masterGain.gain.setTargetAtTime(clamped, this.ctx.currentTime, 0.02);
+  }
+
+  setMasterBpm(bpm) {
+    this.masterBpm = Math.max(30, Math.min(260, Math.round(bpm)));
+    return this.masterBpm;
+  }
+
+  setSnapRatio(ratio) {
+    this.snapRatio = ratio;
+    return this.snapRatio;
+  }
+
+  snapModuleBpm(modId, targetBpm = null, ratio = 1.0) {
+    const mod = this.modules.get(modId);
+    if (!mod) return null;
+
+    let baseBpm = (targetBpm !== null) ? targetBpm : this.masterBpm;
+    let effRatio = typeof ratio === 'number' ? ratio : (parseFloat(ratio) || 1.0);
+
+    if (mod.type === 'percussion' || mod.type === 'acid303' || mod.type === 'sequencer') {
+      const calculatedBpm = Math.max(30, Math.min(240, Math.round(baseBpm * effRatio)));
+      mod.setParam('bpm', calculatedBpm);
+      return { type: 'bpm', value: calculatedBpm };
+    } else if (mod.type === 'midi_player') {
+      const midiBpm = (mod.midiData && mod.midiData.bpm) ? mod.midiData.bpm : baseBpm;
+      const calculatedRate = Math.max(0.1, Math.min(4.0, (baseBpm / midiBpm) * effRatio));
+      mod.setParam('rate', calculatedRate);
+      return { type: 'rate', value: calculatedRate };
+    }
+    return null;
+  }
+
+  snapAllBpm(targetBpm = null, ratio = '1', resyncPhase = true) {
+    this.ensureContext();
+    let baseBpm = (targetBpm !== null && targetBpm !== 'from_midi') ? targetBpm : this.masterBpm;
+    let effRatio = ratio;
+
+    if (effRatio === 'from_midi' || targetBpm === 'from_midi') {
+      for (const [id, mod] of this.modules.entries()) {
+        if (mod.type === 'midi_player' && mod.midiData && mod.midiData.bpm) {
+          baseBpm = mod.midiData.bpm;
+          this.masterBpm = baseBpm;
+          effRatio = '1';
+          break;
+        }
+      }
+      if (effRatio === 'from_midi') effRatio = '1';
+    }
+
+    const numRatio = parseFloat(effRatio) || 1.0;
+    const snapped = [];
+
+    for (const [id, mod] of this.modules.entries()) {
+      const res = this.snapModuleBpm(id, baseBpm, numRatio);
+      if (res) {
+        snapped.push({ id, type: mod.type, param: res.type, value: res.value });
+      }
+    }
+
+    if (resyncPhase) {
+      this.syncDownbeat();
+    }
+
+    return { masterBpm: baseBpm, ratio: numRatio, snapped };
   }
 
   syncDownbeat() {
@@ -862,34 +928,75 @@ class MixerModule {
     this.id = id;
     this.type = 'mixer';
     this.masterBus = masterBus;
+    this.channelCount = 8;
 
     this.channels = [];
-    for (let i = 1; i <= 4; i++) {
+    for (let i = 1; i <= this.channelCount; i++) {
       const input = ctx.createGain();
       const panner = ctx.createStereoPanner();
       const gain = ctx.createGain();
 
-      const gVal = params[`ch${i}_gain`] !== undefined ? params[`ch${i}_gain`] : (i === 1 ? 0.8 : 0.0);
+      const gVal = params[`ch${i}_gain`] !== undefined ? params[`ch${i}_gain`] : (i <= 2 ? 0.85 : 0.0);
       const pVal = params[`ch${i}_pan`] !== undefined ? params[`ch${i}_pan`] : 0.0;
+      const isMuted = !!params[`ch${i}_mute`];
+      const isSolo = !!params[`ch${i}_solo`];
 
-      gain.gain.setValueAtTime(gVal, ctx.currentTime);
+      gain.gain.setValueAtTime(isMuted ? 0 : gVal, ctx.currentTime);
       panner.pan.setValueAtTime(pVal, ctx.currentTime);
 
       input.connect(panner);
       panner.connect(gain);
       gain.connect(this.masterBus);
 
-      this.channels.push({ input, panner, gain });
+      this.channels.push({
+        input,
+        panner,
+        gain,
+        gainVal: gVal,
+        panVal: pVal,
+        muted: isMuted,
+        solo: isSolo
+      });
+    }
+    this.updateGains();
+  }
+
+  updateGains() {
+    const now = this.ctx.currentTime;
+    const hasSolo = this.channels.some(ch => ch.solo);
+    for (const ch of this.channels) {
+      let targetGain = 0;
+      if (hasSolo) {
+        targetGain = (ch.solo && !ch.muted) ? ch.gainVal : 0;
+      } else {
+        targetGain = !ch.muted ? ch.gainVal : 0;
+      }
+      ch.gain.gain.cancelScheduledValues(now);
+      ch.gain.gain.setTargetAtTime(targetGain, now, 0.015);
     }
   }
 
   setParam(name, val) {
     const now = this.ctx.currentTime;
-    for (let i = 1; i <= 4; i++) {
+    for (let i = 1; i <= this.channelCount; i++) {
       if (name === `ch${i}_gain`) {
-        this.channels[i - 1].gain.gain.setTargetAtTime(Math.max(0, Math.min(1.2, val)), now, 0.02);
+        const clamped = Math.max(0, Math.min(1.5, parseFloat(val) || 0));
+        this.channels[i - 1].gainVal = clamped;
+        this.updateGains();
+        return;
       } else if (name === `ch${i}_pan`) {
-        this.channels[i - 1].panner.pan.setTargetAtTime(Math.max(-1, Math.min(1, val)), now, 0.02);
+        const clamped = Math.max(-1, Math.min(1, parseFloat(val) || 0));
+        this.channels[i - 1].panVal = clamped;
+        this.channels[i - 1].panner.pan.setTargetAtTime(clamped, now, 0.02);
+        return;
+      } else if (name === `ch${i}_mute`) {
+        this.channels[i - 1].muted = !!val;
+        this.updateGains();
+        return;
+      } else if (name === `ch${i}_solo`) {
+        this.channels[i - 1].solo = !!val;
+        this.updateGains();
+        return;
       }
     }
   }
@@ -899,10 +1006,13 @@ class MixerModule {
   }
 
   getJackInputNode(jack) {
-    if (jack === 'in1') return this.channels[0].input;
-    if (jack === 'in2') return this.channels[1].input;
-    if (jack === 'in3') return this.channels[2].input;
-    if (jack === 'in4') return this.channels[3].input;
+    const match = jack && jack.match(/^in(\d+)$/);
+    if (match) {
+      const idx = parseInt(match[1], 10) - 1;
+      if (idx >= 0 && idx < this.channels.length) {
+        return this.channels[idx].input;
+      }
+    }
     return this.channels[0].input;
   }
 
@@ -910,6 +1020,7 @@ class MixerModule {
     for (const ch of this.channels) {
       try {
         ch.input.disconnect();
+        ch.panner.disconnect();
         ch.gain.disconnect();
       } catch (e) {}
     }
@@ -3800,12 +3911,23 @@ class MidiPlayerModule {
     this.type = 'midi_player';
     this.rate = params.rate !== undefined ? parseFloat(params.rate) : 1.0;
     this.transpose = params.transpose !== undefined ? parseInt(params.transpose) : 0;
-    this.level = params.level !== undefined ? parseFloat(params.level) : 0.8;
+    this.gain = params.gain !== undefined ? parseFloat(params.gain) : 1.8;
+    this.level = params.level !== undefined ? parseFloat(params.level) : 1.0;
     this.timbre = params.timbre || 'analog_saw';
 
-    // Master Audio Out
+    // Master Audio Out with soft-clip saturation for warm analog punch and anti-clipping headroom
     this.outGain = ctx.createGain();
     this.outGain.gain.setValueAtTime(this.level, ctx.currentTime);
+
+    this.saturator = ctx.createWaveShaper();
+    const curve = new Float32Array(512);
+    for (let i = 0; i < 512; ++i) {
+      const x = (i * 2) / 512 - 1;
+      curve[i] = Math.tanh(x * 1.3) / Math.tanh(1.3);
+    }
+    this.saturator.curve = curve;
+    this.saturator.oversample = '2x';
+    this.saturator.connect(this.outGain);
 
     // CV Pitch out (Frequency in Hz)
     this.pitchNode = ctx.createConstantSource();
@@ -3830,6 +3952,9 @@ class MidiPlayerModule {
     this.lastAudioTime = ctx.currentTime;
     this.activeVoices = [];
     this.scheduledNotes = new Set();
+    this.loopCycle = 0;
+    this.loopSnap = params.loop_snap || 'auto';
+    this.totalDuration = 1.0;
     this.onProgressUpdate = null; // UI callback
 
     // Scheduler tick (every 25ms)
@@ -3840,13 +3965,15 @@ class MidiPlayerModule {
     this.midiData = parsedData;
     this.fileName = fileName || parsedData.title || 'Loaded MIDI';
     this.currentTime = 0;
+    this.loopCycle = 0;
     this.scheduledNotes.clear();
+    this.computeLoopDuration();
     this.lastAudioTime = this.ctx.currentTime;
     this.silenceActiveVoices();
     if (this.onProgressUpdate) {
       this.onProgressUpdate({
         currentTime: 0,
-        totalDuration: this.midiData.duration || 1.0,
+        totalDuration: this.totalDuration,
         tracks: this.midiData.tracks,
         activeTrackIds: new Set(),
       });
@@ -3855,6 +3982,7 @@ class MidiPlayerModule {
 
   resetClock(now) {
     this.currentTime = 0;
+    this.loopCycle = 0;
     this.scheduledNotes.clear();
     this.lastAudioTime = now || this.ctx.currentTime;
     this.silenceActiveVoices();
@@ -3884,6 +4012,7 @@ class MidiPlayerModule {
 
   rewind() {
     this.currentTime = 0;
+    this.loopCycle = 0;
     this.scheduledNotes.clear();
     this.silenceActiveVoices();
   }
@@ -3898,6 +4027,7 @@ class MidiPlayerModule {
     const track = this.midiData.tracks.find(t => t.id === trackId);
     if (track) {
       track.muted = !track.muted;
+      this.computeLoopDuration();
     }
   }
 
@@ -3906,6 +4036,7 @@ class MidiPlayerModule {
     const track = this.midiData.tracks.find(t => t.id === trackId);
     if (track) {
       track.solo = !track.solo;
+      this.computeLoopDuration();
     }
   }
 
@@ -3915,10 +4046,99 @@ class MidiPlayerModule {
       track.muted = (track.id !== trackId);
       track.solo = false;
     }
+    this.computeLoopDuration();
     this.scheduledNotes.clear();
     this.silenceActiveVoices();
   }
 
+  setTrackVolume(trackId, volume) {
+    if (!this.midiData || !this.midiData.tracks) return;
+    const track = this.midiData.tracks.find(t => t.id === trackId);
+    if (track) {
+      track.volume = Math.max(0, Math.min(3.0, parseFloat(volume)));
+    }
+  }
+
+  setLoopSnap(mode) {
+    this.loopSnap = mode;
+    this.computeLoopDuration();
+  }
+
+  computeLoopDuration() {
+    if (!this.midiData || !this.midiData.tracks || !this.midiData.tracks.length) {
+      this.totalDuration = 1.0;
+      return;
+    }
+    const bpm = this.midiData.bpm || 120;
+    const beatSec = 60 / bpm;
+    const barSec = beatSec * 4;
+
+    const hasSolo = this.midiData.tracks.some(t => t.solo);
+    let minStart = Infinity;
+    let maxEnd = 0;
+
+    for (const t of this.midiData.tracks) {
+      if (t.muted) continue;
+      if (hasSolo && !t.solo) continue;
+      for (const n of t.notes) {
+        if (n.start < minStart) minStart = n.start;
+        if (n.start + n.duration > maxEnd) maxEnd = n.start + n.duration;
+      }
+    }
+
+    if (minStart === Infinity) {
+      for (const t of this.midiData.tracks) {
+        for (const n of t.notes) {
+          if (n.start < minStart) minStart = n.start;
+          if (n.start + n.duration > maxEnd) maxEnd = n.start + n.duration;
+        }
+      }
+    }
+
+    if (minStart === Infinity) {
+      this.totalDuration = this.midiData.duration || 1.0;
+      return;
+    }
+
+    const rawSpan = Math.max(0.1, maxEnd);
+
+    if (this.loopSnap === 'exact') {
+      this.totalDuration = rawSpan;
+    } else if (this.loopSnap && this.loopSnap !== 'auto') {
+      const bars = parseInt(this.loopSnap, 10);
+      if (bars > 0) {
+        this.totalDuration = bars * barSec;
+      } else {
+        this.totalDuration = rawSpan;
+      }
+    } else {
+      // Auto smart snap to musical bar or beat
+      const barsFloat = rawSpan / barSec;
+      const nearestBars = Math.round(barsFloat);
+
+      if (nearestBars >= 1) {
+        const barTarget = nearestBars * barSec;
+        const barDiff = rawSpan - barTarget;
+        if (barDiff >= -beatSec && barDiff <= 0.35 * beatSec) {
+          this.totalDuration = barTarget;
+          return;
+        }
+      }
+
+      const beatsFloat = rawSpan / beatSec;
+      const nearestBeats = Math.round(beatsFloat);
+      if (nearestBeats >= 1) {
+        const beatTarget = nearestBeats * beatSec;
+        const beatDiff = rawSpan - beatTarget;
+        if (Math.abs(beatDiff) <= 0.35 * beatSec) {
+          this.totalDuration = beatTarget;
+          return;
+        }
+      }
+
+      this.totalDuration = rawSpan;
+    }
+  }
 
   scheduleTick() {
     if (!this.midiData || !this.isPlaying || !this.midiData.tracks || !this.midiData.tracks.length) return;
@@ -3927,13 +4147,19 @@ class MidiPlayerModule {
     const deltaReal = audioNow - this.lastAudioTime;
     this.lastAudioTime = audioNow;
 
-    this.currentTime += deltaReal * this.rate;
-    const totalDur = this.midiData.duration || 1.0;
+    const totalDur = this.totalDuration || this.midiData.duration || 1.0;
+    const effectiveRate = Math.max(0.1, this.rate);
 
+    this.currentTime += deltaReal * effectiveRate;
+
+    // Advance loop wrap when playhead reaches totalDur
     if (this.currentTime >= totalDur) {
       if (this.isLooping) {
         this.currentTime = this.currentTime % totalDur;
-        this.scheduledNotes.clear();
+        this.loopCycle = (this.loopCycle || 0) + 1;
+        if (this.scheduledNotes.size > 800) {
+          this.scheduledNotes.clear();
+        }
       } else {
         this.isPlaying = false;
         this.silenceActiveVoices();
@@ -3941,29 +4167,67 @@ class MidiPlayerModule {
       }
     }
 
-    const lookahead = 0.12 * this.rate;
-    const windowStart = Math.max(0, this.currentTime);
-    const windowEnd = windowStart + lookahead;
+    const currentCycle = this.loopCycle || 0;
+    const lookaheadSec = 0.15 * effectiveRate;
+    const windowEnd = this.currentTime + lookaheadSec;
+
+    // Slices for seamless boundary lookahead
+    const slices = [];
+    if (windowEnd < totalDur) {
+      slices.push({
+        start: this.currentTime,
+        end: windowEnd,
+        cycle: currentCycle,
+        wrapDelay: 0,
+      });
+    } else {
+      // Remainder of current cycle
+      slices.push({
+        start: this.currentTime,
+        end: totalDur,
+        cycle: currentCycle,
+        wrapDelay: 0,
+      });
+      if (this.isLooping) {
+        // Head of next cycle across the boundary
+        const nextEnd = windowEnd - totalDur;
+        const timeToWrap = Math.max(0, (totalDur - this.currentTime) / effectiveRate);
+        slices.push({
+          start: 0,
+          end: nextEnd,
+          cycle: currentCycle + 1,
+          wrapDelay: timeToWrap,
+        });
+      }
+    }
 
     const hasSolo = this.midiData.tracks.some(t => t.solo);
     const activeTrackIds = new Set();
 
-    for (const track of this.midiData.tracks) {
-      if (track.muted) continue;
-      if (hasSolo && !track.solo) continue;
+    for (const slice of slices) {
+      for (const track of this.midiData.tracks) {
+        if (track.muted) continue;
+        if (hasSolo && !track.solo) continue;
 
-      for (const note of track.notes) {
-        if (note.start >= windowStart && note.start < windowEnd) {
-          const noteKey = `${track.id}_${note.note}_${note.start.toFixed(4)}`;
-          if (this.scheduledNotes.has(noteKey)) continue;
-          this.scheduledNotes.add(noteKey);
+        for (const note of track.notes) {
+          if (note.start >= slice.start && note.start < slice.end) {
+            const noteKey = `${slice.cycle}_${track.id}_${note.note}_${note.start.toFixed(4)}`;
+            if (this.scheduledNotes.has(noteKey)) continue;
+            this.scheduledNotes.add(noteKey);
 
-          const delaySec = Math.max(0, (note.start - windowStart) / Math.max(0.1, this.rate));
-          const startAudioTime = audioNow + delaySec;
-          const noteDur = Math.max(0.04, note.duration / Math.max(0.1, this.rate));
+            let noteDelay;
+            if (slice.wrapDelay > 0) {
+              noteDelay = slice.wrapDelay + (note.start / effectiveRate);
+            } else {
+              noteDelay = Math.max(0, (note.start - this.currentTime) / effectiveRate);
+            }
 
-          activeTrackIds.add(track.id);
-          this.triggerNote(track, note, startAudioTime, noteDur);
+            const startAudioTime = audioNow + noteDelay;
+            const noteDur = Math.max(0.04, note.duration / effectiveRate);
+
+            activeTrackIds.add(track.id);
+            this.triggerNote(track, note, startAudioTime, noteDur);
+          }
         }
       }
     }
@@ -3984,7 +4248,13 @@ class MidiPlayerModule {
   triggerNote(track, note, startTime, duration) {
     const midiPitch = Math.max(12, Math.min(127, note.note + this.transpose));
     const freq = 440 * Math.pow(2, (midiPitch - 69) / 12);
-    const velNormalized = Math.max(0.1, Math.min(1.0, (note.velocity || 90) / 127));
+    const velNormalized = Math.max(0.25, Math.min(1.0, (note.velocity || 90) / 127));
+
+    // Dynamic track & voice volume calculation
+    const trackVol = track.volume !== undefined ? track.volume : 1.0;
+    const gainBoost = this.gain !== undefined ? this.gain : 1.8;
+    // Base note gain is hot and punchy, matching modular VCO and 303 levels (~0.85 peak)
+    const noteGain = (0.35 + 0.65 * velNormalized) * 0.75 * gainBoost * trackVol;
 
     // Update CV Pitch & Gate
     const stopTime = startTime + duration;
@@ -3995,21 +4265,20 @@ class MidiPlayerModule {
 
     const osc = this.ctx.createOscillator();
     const env = this.ctx.createGain();
-    const noteGain = velNormalized * 0.22;
 
     switch (this.timbre) {
       case 'poly_epiano': {
         osc.type = 'triangle';
         osc.frequency.setValueAtTime(freq, startTime);
         env.gain.setValueAtTime(0, startTime);
-        env.gain.linearRampToValueAtTime(noteGain, startTime + 0.008);
-        env.gain.exponentialRampToValueAtTime(0.001, stopTime + 0.12);
+        env.gain.linearRampToValueAtTime(noteGain * 0.9, startTime + 0.008);
+        env.gain.exponentialRampToValueAtTime(0.001, stopTime + 0.15);
         break;
       }
       case 'chiptune': {
         osc.type = 'square';
         osc.frequency.setValueAtTime(freq, startTime);
-        env.gain.setValueAtTime(noteGain * 0.7, startTime);
+        env.gain.setValueAtTime(noteGain * 0.75, startTime);
         env.gain.setValueAtTime(0, stopTime);
         break;
       }
@@ -4026,7 +4295,7 @@ class MidiPlayerModule {
         modGain.connect(osc.frequency);
         mod.start(startTime);
         mod.stop(stopTime + 0.15);
-        env.gain.setValueAtTime(noteGain, startTime);
+        env.gain.setValueAtTime(noteGain * 0.9, startTime);
         env.gain.exponentialRampToValueAtTime(0.001, stopTime + 0.15);
         break;
       }
@@ -4034,8 +4303,8 @@ class MidiPlayerModule {
         osc.type = 'sine';
         osc.frequency.setValueAtTime(freq, startTime);
         env.gain.setValueAtTime(0, startTime);
-        env.gain.linearRampToValueAtTime(noteGain * 1.1, startTime + 0.01);
-        env.gain.exponentialRampToValueAtTime(0.001, stopTime + 0.06);
+        env.gain.linearRampToValueAtTime(noteGain * 1.05, startTime + 0.01);
+        env.gain.exponentialRampToValueAtTime(0.001, stopTime + 0.08);
         break;
       }
       case 'analog_saw':
@@ -4049,18 +4318,18 @@ class MidiPlayerModule {
         osc.connect(filter);
         filter.connect(env);
         env.gain.setValueAtTime(0, startTime);
-        env.gain.linearRampToValueAtTime(noteGain * 0.8, startTime + 0.006);
-        env.gain.exponentialRampToValueAtTime(0.001, stopTime + 0.05);
+        env.gain.linearRampToValueAtTime(noteGain * 0.95, startTime + 0.006);
+        env.gain.exponentialRampToValueAtTime(0.001, stopTime + 0.08);
         osc.start(startTime);
         osc.stop(stopTime + 0.1);
-        env.connect(this.outGain);
+        env.connect(this.saturator);
         this.activeVoices.push({ osc, gain: env, stopTime: stopTime + 0.1 });
         return;
       }
     }
 
     osc.connect(env);
-    env.connect(this.outGain);
+    env.connect(this.saturator);
     osc.start(startTime);
     osc.stop(stopTime + 0.2);
     this.activeVoices.push({ osc, gain: env, stopTime: stopTime + 0.2 });
@@ -4071,11 +4340,15 @@ class MidiPlayerModule {
       this.rate = Math.max(0.1, Math.min(4.0, parseFloat(val)));
     } else if (name === 'transpose') {
       this.transpose = parseInt(val) || 0;
+    } else if (name === 'gain') {
+      this.gain = Math.max(0.2, Math.min(5.0, parseFloat(val)));
     } else if (name === 'level') {
-      this.level = Math.max(0, Math.min(1, parseFloat(val)));
+      this.level = Math.max(0, Math.min(3.0, parseFloat(val)));
       this.outGain.gain.setTargetAtTime(this.level, this.ctx.currentTime, 0.02);
     } else if (name === 'timbre') {
       this.timbre = val;
+    } else if (name === 'loop_snap') {
+      this.setLoopSnap(val);
     }
   }
 

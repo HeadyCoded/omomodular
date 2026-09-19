@@ -7,6 +7,7 @@ class CableManager {
   constructor(svgElement, rackElement, dspEngine) {
     this.svg = svgElement;
     this.rack = rackElement;
+    this.scrollContainer = document.getElementById('rack-container') || (rackElement ? rackElement.parentElement : null) || window;
     this.dsp = dspEngine;
     this.cables = []; // { id, from: {moduleId, jack}, to: {moduleId, jack}, color }
     this.isGhost = false;
@@ -21,9 +22,13 @@ class CableManager {
     ];
     this.colorIndex = 0;
 
-    // Dragging state
+    // Dragging & Autoscroll state
     this.dragStart = null; // { moduleId, jack, x, y, isOut }
     this.dragCurrent = null; // { x, y }
+    this.dragMousePos = null; // { clientX, clientY }
+    this.dragOriginJackEl = null;
+    this.dragDirection = 'out';
+    this.autoscrollRaf = null;
 
     this.setupEvents();
   }
@@ -36,11 +41,28 @@ class CableManager {
 
   setupEvents() {
     window.addEventListener('resize', () => this.render());
-    this.rack.addEventListener('scroll', () => this.render());
+    if (this.scrollContainer && this.scrollContainer.addEventListener) {
+      this.scrollContainer.addEventListener('scroll', () => {
+        this.updateDragCoordsOnScroll();
+        this.render();
+      });
+    }
+    if (this.rack && this.rack.addEventListener && this.rack !== this.scrollContainer) {
+      this.rack.addEventListener('scroll', () => {
+        this.updateDragCoordsOnScroll();
+        this.render();
+      });
+    }
+    window.addEventListener('scroll', () => {
+      this.updateDragCoordsOnScroll();
+      this.render();
+    });
 
     // Live cable dragging
     window.addEventListener('mousemove', (e) => {
       if (!this.dragStart) return;
+      this.dragMousePos = { clientX: e.clientX, clientY: e.clientY };
+
       const rect = this.svg.getBoundingClientRect();
       this.dragCurrent = {
         x: e.clientX - rect.left,
@@ -51,46 +73,145 @@ class CableManager {
 
     window.addEventListener('mouseup', (e) => {
       if (!this.dragStart) return;
+      this.stopAutoscroll();
+
       // Check if dropped on a valid target jack
       const target = document.elementFromPoint(e.clientX, e.clientY);
       const jackEl = target ? target.closest('.jack') : null;
 
-      if (jackEl && jackEl.dataset.direction === 'in') {
+      if (jackEl) {
         const toModId = jackEl.dataset.module;
         const toJack = jackEl.dataset.jack;
+        const toDir = jackEl.dataset.direction;
 
         if (this.dragStart.moduleId !== toModId) {
-          this.addCable(
-            this.dragStart.moduleId,
-            this.dragStart.jack,
-            toModId,
-            toJack,
-            this.nextColor()
-          );
+          if (this.dragDirection === 'out' && toDir === 'in') {
+            this.addCable(
+              this.dragStart.moduleId,
+              this.dragStart.jack,
+              toModId,
+              toJack,
+              this.nextColor()
+            );
+          } else if (this.dragDirection === 'in' && toDir === 'out') {
+            this.addCable(
+              toModId,
+              toJack,
+              this.dragStart.moduleId,
+              this.dragStart.jack,
+              this.nextColor()
+            );
+          }
         }
       }
 
       this.dragStart = null;
       this.dragCurrent = null;
+      this.dragMousePos = null;
+      this.dragOriginJackEl = null;
       this.render();
     });
   }
 
-  startDragging(jackElement) {
-    const isOut = jackElement.dataset.direction === 'out';
-    if (!isOut) return;
+  updateDragCoordsOnScroll() {
+    if (!this.dragStart) return;
+    if (this.dragOriginJackEl) {
+      const originPos = this.getJackCenter(this.dragOriginJackEl);
+      this.dragStart.x = originPos.x;
+      this.dragStart.y = originPos.y;
+    }
+    if (this.dragMousePos) {
+      const rect = this.svg.getBoundingClientRect();
+      this.dragCurrent = {
+        x: this.dragMousePos.clientX - rect.left,
+        y: this.dragMousePos.clientY - rect.top,
+      };
+    }
+  }
 
+  startAutoscroll() {
+    if (this.autoscrollRaf) return;
+
+    const topEdgeEl = document.querySelector('.rack-scroll-edge.top');
+    const bottomEdgeEl = document.querySelector('.rack-scroll-edge.bottom');
+
+    const step = () => {
+      if (!this.dragStart) {
+        this.stopAutoscroll();
+        return;
+      }
+
+      const container = this.scrollContainer || document.getElementById('rack-container');
+      if (container && this.dragMousePos) {
+        const rect = container.getBoundingClientRect();
+        const clientY = this.dragMousePos.clientY;
+        const topThreshold = rect.top + 90;
+        const bottomThreshold = rect.bottom - 90;
+
+        let scrollDelta = 0;
+
+        if (clientY < topThreshold) {
+          const dist = Math.max(1, topThreshold - clientY);
+          scrollDelta = -Math.min(32, Math.max(4, dist * 0.35));
+          if (topEdgeEl) topEdgeEl.classList.add('active');
+          if (bottomEdgeEl) bottomEdgeEl.classList.remove('active');
+        } else if (clientY > bottomThreshold) {
+          const dist = Math.max(1, clientY - bottomThreshold);
+          scrollDelta = Math.min(32, Math.max(4, dist * 0.35));
+          if (bottomEdgeEl) bottomEdgeEl.classList.add('active');
+          if (topEdgeEl) topEdgeEl.classList.remove('active');
+        } else {
+          if (topEdgeEl) topEdgeEl.classList.remove('active');
+          if (bottomEdgeEl) bottomEdgeEl.classList.remove('active');
+        }
+
+        if (scrollDelta !== 0) {
+          const oldScroll = container.scrollTop;
+          container.scrollTop += scrollDelta;
+
+          if (container.scrollTop !== oldScroll) {
+            this.updateDragCoordsOnScroll();
+            this.render();
+          }
+        }
+      }
+
+      this.autoscrollRaf = requestAnimationFrame(step);
+    };
+
+    this.autoscrollRaf = requestAnimationFrame(step);
+  }
+
+  stopAutoscroll() {
+    if (this.autoscrollRaf) {
+      cancelAnimationFrame(this.autoscrollRaf);
+      this.autoscrollRaf = null;
+    }
+    const topEdgeEl = document.querySelector('.rack-scroll-edge.top');
+    const bottomEdgeEl = document.querySelector('.rack-scroll-edge.bottom');
+    if (topEdgeEl) topEdgeEl.classList.remove('active');
+    if (bottomEdgeEl) bottomEdgeEl.classList.remove('active');
+  }
+
+  startDragging(jackElement) {
     this.dsp.ensureContext();
+    const isOut = jackElement.dataset.direction === 'out';
+    this.dragDirection = isOut ? 'out' : 'in';
+    this.dragOriginJackEl = jackElement;
+
     const pos = this.getJackCenter(jackElement);
     this.dragStart = {
       moduleId: jackElement.dataset.module,
       jack: jackElement.dataset.jack,
       x: pos.x,
       y: pos.y,
-      isOut: true,
+      isOut: isOut,
     };
     this.dragCurrent = { x: pos.x, y: pos.y };
+    this.dragMousePos = { clientX: pos.x, clientY: pos.y };
     this.render();
+
+    this.startAutoscroll();
   }
 
   getJackCenter(el) {
@@ -106,7 +227,7 @@ class CableManager {
     const selector = direction
       ? `.jack[data-module="${moduleId}"][data-jack="${jack}"][data-direction="${direction}"]`
       : `.jack[data-module="${moduleId}"][data-jack="${jack}"]`;
-    return this.rack.querySelector(selector);
+    return (this.rack ? this.rack.querySelector(selector) : null) || document.querySelector(selector);
   }
 
   addCable(fromModId, fromJack, toModId, toJack, color = null) {
@@ -188,10 +309,15 @@ class CableManager {
   }
 
   render() {
-    // Sizing SVG to cover full scrollable rack dimensions
-    const scrollW = Math.max(this.rack.scrollWidth || 0, this.rack.clientWidth || 0, window.innerWidth);
-    const scrollH = Math.max(this.rack.scrollHeight || 0, this.rack.clientHeight || 0, window.innerHeight);
-    this.svg.style.width = `${scrollW}px`;
+    const container = this.scrollContainer || document.getElementById('rack-container');
+    const scrollW = container ? container.clientWidth : (this.rack ? this.rack.clientWidth : window.innerWidth);
+    const scrollH = Math.max(
+      this.rack ? (this.rack.scrollHeight || 0) : 0,
+      container ? (container.scrollHeight || 0) : 0,
+      window.innerHeight
+    );
+    this.svg.style.width = '100%';
+    this.svg.style.maxWidth = '100%';
     this.svg.style.height = `${scrollH}px`;
     this.svg.setAttribute('width', scrollW);
     this.svg.setAttribute('height', scrollH);
