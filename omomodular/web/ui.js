@@ -1,0 +1,1676 @@
+/**
+ * OmoModular Eurorack UI System
+ * Renders modular faceplates, rotary knobs, 3.5mm jacks, oscilloscope, and module drawer.
+ */
+
+const MODULE_DEFINITIONS = {
+  vco: {
+    name: 'DUAL DRONE VCO',
+    category: 'Source',
+    width: 200,
+    desc: 'Dual analog waveform oscillators with micro-detune, sub-octave, and cross-FM.',
+    inputs: [],
+    outputs: ['out'],
+    controls: [
+      { id: 'freq1', label: 'PITCH', type: 'knob', min: 20, max: 800, default: 55, unit: 'Hz', step: 0.5 },
+      { id: 'detune2', label: 'DETUNE', type: 'knob', min: -50, max: 50, default: 7, unit: 'ct', step: 1 },
+      { id: 'subLevel', label: 'SUB LVL', type: 'knob', min: 0, max: 1, default: 0.5, unit: '', step: 0.01 },
+      { id: 'fmDepth', label: 'CROSS FM', type: 'knob', min: 0, max: 1, default: 0.15, unit: '', step: 0.01 },
+      { id: 'drift', label: 'DRIFT', type: 'knob', min: 0, max: 1, default: 0.3, unit: '', step: 0.01 },
+      { id: 'wave1', label: 'WAVE 1', type: 'select', options: ['sawtooth', 'triangle', 'sine', 'square'], default: 'sawtooth' },
+      { id: 'wave2', label: 'WAVE 2', type: 'select', options: ['sine', 'triangle', 'sawtooth', 'square'], default: 'sine' },
+    ],
+  },
+  noise: {
+    name: 'NOISE & TEXTURE',
+    category: 'Source',
+    width: 170,
+    desc: 'Analog noise generator (White, Pink, Brown) with tape/vinyl texture.',
+    inputs: [],
+    outputs: ['out'],
+    controls: [
+      { id: 'level', label: 'LEVEL', type: 'knob', min: 0, max: 1, default: 0.4, unit: '', step: 0.01 },
+      { id: 'color', label: 'COLOR', type: 'select', options: ['brown', 'pink', 'white'], default: 'brown' },
+    ],
+  },
+  filter: {
+    name: 'LADDER FILTER',
+    category: 'Filter',
+    width: 180,
+    desc: 'Resonant 24dB ladder filter with saturation drive and self-oscillation.',
+    inputs: ['in'],
+    outputs: ['out'],
+    controls: [
+      { id: 'cutoff', label: 'CUTOFF', type: 'knob', min: 30, max: 12000, default: 440, unit: 'Hz', step: 1, log: true },
+      { id: 'resonance', label: 'RES (Q)', type: 'knob', min: 0.1, max: 18, default: 4.5, unit: '', step: 0.1 },
+      { id: 'drive', label: 'DRIVE', type: 'knob', min: 1, max: 5, default: 1.3, unit: '', step: 0.1 },
+      { id: 'mode', label: 'MODE', type: 'select', options: ['lowpass', 'bandpass', 'highpass'], default: 'lowpass' },
+    ],
+  },
+  wavefolder: {
+    name: 'WAVEFOLDER',
+    category: 'Distortion',
+    width: 180,
+    desc: 'Trigonometric harmonic wavefolder with soft-clipping analog saturation.',
+    inputs: ['in'],
+    outputs: ['out'],
+    controls: [
+      { id: 'drive', label: 'DRIVE', type: 'knob', min: 0.5, max: 5, default: 2.2, unit: '', step: 0.1 },
+      { id: 'folds', label: 'FOLDS', type: 'knob', min: 0.5, max: 6, default: 2.5, unit: '', step: 0.1 },
+      { id: 'mix', label: 'DRY/WET', type: 'knob', min: 0, max: 1, default: 0.8, unit: '', step: 0.01 },
+    ],
+  },
+  bitcrusher: {
+    name: 'BITCRUSHER',
+    category: 'Lo-Fi',
+    width: 170,
+    desc: 'Digital downsampling decimation and bit-depth quantization crunch.',
+    inputs: ['in'],
+    outputs: ['out'],
+    controls: [
+      { id: 'bits', label: 'BITS', type: 'knob', min: 2, max: 16, default: 6, unit: 'bit', step: 1 },
+      { id: 'rateReduction', label: 'CRUSH', type: 'knob', min: 1, max: 32, default: 8, unit: 'x', step: 1 },
+    ],
+  },
+  delay: {
+    name: 'TAPE DELAY',
+    category: 'Time',
+    width: 190,
+    desc: 'Stereo tape delay with feedback, high-frequency damping, and wow/flutter.',
+    inputs: ['in'],
+    outputs: ['out'],
+    controls: [
+      { id: 'time', label: 'TIME', type: 'knob', min: 20, max: 1500, default: 450, unit: 'ms', step: 5 },
+      { id: 'feedback', label: 'FBACK', type: 'knob', min: 0, max: 0.95, default: 0.52, unit: '', step: 0.01 },
+      { id: 'damping', label: 'DAMP', type: 'knob', min: 300, max: 10000, default: 2200, unit: 'Hz', step: 50 },
+      { id: 'flutter', label: 'FLUTTER', type: 'knob', min: 0, max: 1, default: 0.25, unit: '', step: 0.01 },
+      { id: 'mix', label: 'DRY/WET', type: 'knob', min: 0, max: 1, default: 0.45, unit: '', step: 0.01 },
+    ],
+  },
+  reverb: {
+    name: 'SPACE REVERB',
+    category: 'Space',
+    width: 180,
+    desc: 'Lush ambient diffusion reverb for infinite ethereal drone washes.',
+    inputs: ['in'],
+    outputs: ['out'],
+    controls: [
+      { id: 'decay', label: 'DECAY', type: 'knob', min: 0.5, max: 12, default: 5.5, unit: 's', step: 0.1 },
+      { id: 'mix', label: 'DRY/WET', type: 'knob', min: 0, max: 1, default: 0.6, unit: '', step: 0.01 },
+    ],
+  },
+  mixer: {
+    name: '4-CH MIXER & MASTER',
+    category: 'Master',
+    width: 260,
+    desc: '4 stereo channels with gain, pan, master limiter, and live oscilloscope.',
+    inputs: ['in1', 'in2', 'in3', 'in4'],
+    outputs: [],
+    controls: [
+      { id: 'ch1_gain', label: 'CH 1', type: 'knob', min: 0, max: 1.2, default: 0.85, unit: '', step: 0.01 },
+      { id: 'ch1_pan', label: 'PAN 1', type: 'knob', min: -1, max: 1, default: 0, unit: '', step: 0.05 },
+      { id: 'ch2_gain', label: 'CH 2', type: 'knob', min: 0, max: 1.2, default: 0.4, unit: '', step: 0.01 },
+      { id: 'ch2_pan', label: 'PAN 2', type: 'knob', min: -1, max: 1, default: 0, unit: '', step: 0.05 },
+      { id: 'ch3_gain', label: 'CH 3', type: 'knob', min: 0, max: 1.2, default: 0.0, unit: '', step: 0.01 },
+      { id: 'ch4_gain', label: 'CH 4', type: 'knob', min: 0, max: 1.2, default: 0.0, unit: '', step: 0.01 },
+    ],
+  },
+  swarm: {
+    name: 'CHORD SWARM VCO',
+    category: 'Source',
+    width: 210,
+    desc: '4-voice supersaw & chord drone cluster with spread detuning and sub-bass.',
+    inputs: [],
+    outputs: ['out'],
+    controls: [
+      { id: 'freq', label: 'ROOT', type: 'knob', min: 25, max: 500, default: 65.41, unit: 'Hz', step: 0.5 },
+      { id: 'spread', label: 'SPREAD', type: 'knob', min: 0, max: 50, default: 14, unit: 'ct', step: 1 },
+      { id: 'subLevel', label: 'SUB BASS', type: 'knob', min: 0, max: 1, default: 0.45, unit: '', step: 0.01 },
+      { id: 'chord', label: 'CHORD', type: 'select', options: ['minor7', 'major7', 'fifth', 'sus4', 'unison'], default: 'minor7' },
+      { id: 'wave', label: 'WAVE', type: 'select', options: ['sawtooth', 'triangle', 'square', 'sine'], default: 'sawtooth' },
+    ],
+  },
+  granular: {
+    name: 'GRANULAR CLOUDS',
+    category: 'Texture',
+    width: 190,
+    desc: 'Real-time micro-sampling grain texture cloud generator with pitch spray.',
+    inputs: ['in'],
+    outputs: ['out'],
+    controls: [
+      { id: 'grainSize', label: 'SIZE', type: 'knob', min: 0.02, max: 0.4, default: 0.12, unit: 's', step: 0.01 },
+      { id: 'density', label: 'DENSITY', type: 'knob', min: 2, max: 25, default: 8, unit: 'x', step: 1 },
+      { id: 'pitchSpray', label: 'SPRAY', type: 'knob', min: 0, max: 1, default: 0.35, unit: '', step: 0.01 },
+      { id: 'mix', label: 'DRY/WET', type: 'knob', min: 0, max: 1, default: 0.7, unit: '', step: 0.01 },
+    ],
+  },
+  resonator: {
+    name: 'KARPLUS RESONATOR',
+    category: 'Physical',
+    width: 180,
+    desc: 'Tuned string and metallic plate physical modeling resonator.',
+    inputs: ['in'],
+    outputs: ['out'],
+    controls: [
+      { id: 'freq', label: 'TUNE', type: 'knob', min: 30, max: 800, default: 130.81, unit: 'Hz', step: 1 },
+      { id: 'decay', label: 'DECAY', type: 'knob', min: 0.5, max: 0.99, default: 0.94, unit: '', step: 0.01 },
+      { id: 'damping', label: 'DAMP', type: 'knob', min: 300, max: 12000, default: 3500, unit: 'Hz', step: 50 },
+      { id: 'mix', label: 'DRY/WET', type: 'knob', min: 0, max: 1, default: 0.8, unit: '', step: 0.01 },
+    ],
+  },
+  formant: {
+    name: 'FORMANT FILTER',
+    category: 'Filter',
+    width: 180,
+    desc: 'Dual-peak vocal tract filter morphing across English vowel formants (A-E-I-O-U).',
+    inputs: ['in'],
+    outputs: ['out'],
+    controls: [
+      { id: 'vowel', label: 'VOWEL', type: 'knob', min: 1, max: 5, default: 1, unit: '', step: 0.05 },
+      { id: 'resonance', label: 'PEAK (Q)', type: 'knob', min: 1, max: 20, default: 8, unit: '', step: 0.2 },
+    ],
+  },
+  chorus: {
+    name: 'DIMENSION CHORUS',
+    category: 'Modulation',
+    width: 180,
+    desc: 'Multi-voice bucket brigade delay stereo chorus and flanger.',
+    inputs: ['in'],
+    outputs: ['out'],
+    controls: [
+      { id: 'rate', label: 'RATE', type: 'knob', min: 0.1, max: 6, default: 0.8, unit: 'Hz', step: 0.05 },
+      { id: 'depth', label: 'DEPTH', type: 'knob', min: 0, max: 1, default: 0.55, unit: '', step: 0.01 },
+      { id: 'mix', label: 'DRY/WET', type: 'knob', min: 0, max: 1, default: 0.6, unit: '', step: 0.01 },
+    ],
+  },
+  phaser: {
+    name: 'OPTICAL PHASER',
+    category: 'Modulation',
+    width: 180,
+    desc: '6-stage analog allpass phaser with feedback swoosh.',
+    inputs: ['in'],
+    outputs: ['out'],
+    controls: [
+      { id: 'rate', label: 'RATE', type: 'knob', min: 0.05, max: 5, default: 0.35, unit: 'Hz', step: 0.02 },
+      { id: 'depth', label: 'SWEEP', type: 'knob', min: 0, max: 1, default: 0.7, unit: '', step: 0.01 },
+      { id: 'feedback', label: 'FEEDBACK', type: 'knob', min: 0, max: 0.85, default: 0.55, unit: '', step: 0.01 },
+      { id: 'mix', label: 'DRY/WET', type: 'knob', min: 0, max: 1, default: 0.65, unit: '', step: 0.01 },
+    ],
+  },
+  ringmod: {
+    name: 'RING MODULATOR',
+    category: 'Dissonance',
+    width: 180,
+    desc: 'Internal carrier frequency multiplication for alien, metallic, and robotic tones.',
+    inputs: ['in'],
+    outputs: ['out'],
+    controls: [
+      { id: 'freq', label: 'CARRIER', type: 'knob', min: 2, max: 2000, default: 180, unit: 'Hz', step: 1, log: true },
+      { id: 'shape', label: 'SHAPE', type: 'select', options: ['sine', 'triangle', 'square'], default: 'sine' },
+      { id: 'mix', label: 'DRY/WET', type: 'knob', min: 0, max: 1, default: 0.75, unit: '', step: 0.01 },
+    ],
+  },
+  autopan: {
+    name: 'AUTO-PAN & TREMOLO',
+    category: 'Spatial',
+    width: 170,
+    desc: 'Stereo spatial motion and optical amplitude chopper.',
+    inputs: ['in'],
+    outputs: ['out'],
+    controls: [
+      { id: 'rate', label: 'SPEED', type: 'knob', min: 0.1, max: 12, default: 1.5, unit: 'Hz', step: 0.1 },
+      { id: 'depth', label: 'DEPTH', type: 'knob', min: 0, max: 1, default: 0.8, unit: '', step: 0.01 },
+      { id: 'shape', label: 'SHAPE', type: 'select', options: ['sine', 'triangle', 'square'], default: 'sine' },
+    ],
+  },
+  wavetable: {
+    name: 'WAVETABLE VCO',
+    category: 'Source',
+    width: 190,
+    desc: 'Digital harmonic wavetable oscillator with morphable spectra (Glass, Organ, Vocal, Metallic).',
+    inputs: [],
+    outputs: ['out'],
+    controls: [
+      { id: 'freq', label: 'PITCH', type: 'knob', min: 25, max: 800, default: 65.41, unit: 'Hz', step: 0.5 },
+      { id: 'subLevel', label: 'SUB BASS', type: 'knob', min: 0, max: 1, default: 0.4, unit: '', step: 0.01 },
+      { id: 'table', label: 'TABLE', type: 'select', options: ['glass', 'organ', 'vocal', 'metallic'], default: 'glass' },
+    ],
+  },
+  fm_quad: {
+    name: 'FM QUAD OPERATOR',
+    category: 'Source',
+    width: 210,
+    desc: '4-operator cascading frequency modulation synthesizer voice with harmonic ratios.',
+    inputs: [],
+    outputs: ['out'],
+    controls: [
+      { id: 'freq', label: 'CARRIER', type: 'knob', min: 25, max: 600, default: 110, unit: 'Hz', step: 1 },
+      { id: 'ratio2', label: 'RATIO 2', type: 'knob', min: 0.5, max: 8, default: 2.0, unit: 'x', step: 0.5 },
+      { id: 'ratio3', label: 'RATIO 3', type: 'knob', min: 0.5, max: 8, default: 3.5, unit: 'x', step: 0.5 },
+      { id: 'index', label: 'FM INDEX', type: 'knob', min: 0, max: 2.0, default: 0.6, unit: '', step: 0.01 },
+    ],
+  },
+  percussion: {
+    name: 'ANALOG DRUMS',
+    category: 'Percussion',
+    width: 230,
+    desc: 'Vintage analog drum synthesizer (808 Sub Kick, Snare Snap, Metallic Hat).',
+    inputs: [],
+    outputs: ['out'],
+    controls: [
+      { id: 'bpm', label: 'TEMPO', type: 'knob', min: 40, max: 220, default: 120, unit: 'bpm', step: 1 },
+      { id: 'decay', label: 'DECAY', type: 'knob', min: 0.05, max: 1.0, default: 0.35, unit: 's', step: 0.01 },
+      { id: 'mode', label: 'SOUND', type: 'select', options: ['808kick', 'snare', 'hihat'], default: '808kick' },
+      { id: 'pattern', label: 'PATTERN', type: 'select', options: ['auto', 'four_floor', 'backbeat', 'every_8th', 'syncopated', 'every_16th'], default: 'auto' },
+    ],
+  },
+  acid303: {
+    name: 'ACID 303 SYNTH',
+    category: 'Source',
+    width: 230,
+    desc: 'Diode-ladder resonant acid bass synth voice with accent sweep and slide.',
+    inputs: [],
+    outputs: ['out'],
+    controls: [
+      { id: 'bpm', label: 'TEMPO', type: 'knob', min: 40, max: 220, default: 120, unit: 'bpm', step: 1 },
+      { id: 'cutoff', label: 'CUTOFF', type: 'knob', min: 60, max: 6000, default: 420, unit: 'Hz', step: 10, log: true },
+      { id: 'resonance', label: 'RES (Q)', type: 'knob', min: 1, max: 24, default: 14, unit: '', step: 0.2 },
+      { id: 'envMod', label: 'ENV MOD', type: 'knob', min: 0, max: 1, default: 0.6, unit: '', step: 0.01 },
+      { id: 'wave', label: 'WAVE', type: 'select', options: ['sawtooth', 'square'], default: 'sawtooth' },
+    ],
+  },
+  eq7: {
+    name: '7-BAND GRAPHIC EQ',
+    category: 'Filter',
+    width: 240,
+    desc: 'Surgical 7-band graphic equalizer for shaping bass, mids, and air frequencies.',
+    inputs: ['in'],
+    outputs: ['out'],
+    controls: [
+      { id: 'b_60', label: '60Hz', type: 'knob', min: -12, max: 12, default: 0, unit: 'dB', step: 0.5 },
+      { id: 'b_150', label: '150Hz', type: 'knob', min: -12, max: 12, default: 0, unit: 'dB', step: 0.5 },
+      { id: 'b_400', label: '400Hz', type: 'knob', min: -12, max: 12, default: 0, unit: 'dB', step: 0.5 },
+      { id: 'b_1000', label: '1kHz', type: 'knob', min: -12, max: 12, default: 0, unit: 'dB', step: 0.5 },
+      { id: 'b_2400', label: '2.4kHz', type: 'knob', min: -12, max: 12, default: 0, unit: 'dB', step: 0.5 },
+      { id: 'b_6000', label: '6kHz', type: 'knob', min: -12, max: 12, default: 0, unit: 'dB', step: 0.5 },
+    ],
+  },
+  comb: {
+    name: 'COMB RESONATOR',
+    category: 'Filter',
+    width: 180,
+    desc: 'Dual comb filter creating flanged ringing resonances and acoustic chamber peaks.',
+    inputs: ['in'],
+    outputs: ['out'],
+    controls: [
+      { id: 'freq', label: 'PITCH', type: 'knob', min: 40, max: 1200, default: 220, unit: 'Hz', step: 1 },
+      { id: 'feedback', label: 'FEEDBACK', type: 'knob', min: 0, max: 0.98, default: 0.85, unit: '', step: 0.01 },
+      { id: 'mix', label: 'DRY/WET', type: 'knob', min: 0, max: 1, default: 0.7, unit: '', step: 0.01 },
+    ],
+  },
+  compressor: {
+    name: 'VCA COMPRESSOR',
+    category: 'Dynamics',
+    width: 190,
+    desc: 'Analog VCA dynamics compressor and makeup gain level maximizer.',
+    inputs: ['in'],
+    outputs: ['out'],
+    controls: [
+      { id: 'threshold', label: 'THRESH', type: 'knob', min: -40, max: 0, default: -18, unit: 'dB', step: 1 },
+      { id: 'ratio', label: 'RATIO', type: 'knob', min: 1, max: 16, default: 4, unit: ':1', step: 0.5 },
+      { id: 'makeup', label: 'MAKEUP', type: 'knob', min: 0.8, max: 2.5, default: 1.3, unit: 'x', step: 0.05 },
+    ],
+  },
+  fuzz: {
+    name: 'GERMANIUM FUZZ',
+    category: 'Distortion',
+    width: 180,
+    desc: 'Vintage Germanium diode asymmetric saturation and fuzzy harmonic breakup.',
+    inputs: ['in'],
+    outputs: ['out'],
+    controls: [
+      { id: 'gain', label: 'FUZZ', type: 'knob', min: 1, max: 20, default: 8, unit: '', step: 0.5 },
+      { id: 'tone', label: 'TONE', type: 'knob', min: 600, max: 10000, default: 3200, unit: 'Hz', step: 100 },
+      { id: 'mix', label: 'DRY/WET', type: 'knob', min: 0, max: 1, default: 0.85, unit: '', step: 0.01 },
+    ],
+  },
+  shimmer: {
+    name: 'SHIMMER REVERB',
+    category: 'Space',
+    width: 190,
+    desc: 'Celestial ambient shimmer reverb with octave-transposed infinite feedback.',
+    inputs: ['in'],
+    outputs: ['out'],
+    controls: [
+      { id: 'decay', label: 'DECAY', type: 'knob', min: 1, max: 14, default: 8.0, unit: 's', step: 0.2 },
+      { id: 'mix', label: 'DRY/WET', type: 'knob', min: 0, max: 1, default: 0.75, unit: '', step: 0.01 },
+    ],
+  },
+  sequencer: {
+    name: '8-STEP GATE SEQ',
+    category: 'Utility',
+    width: 180,
+    desc: 'Rhythmic 8-step volume chopper and sync gate pulse generator.',
+    inputs: ['in'],
+    outputs: ['out'],
+    controls: [
+      { id: 'bpm', label: 'TEMPO', type: 'knob', min: 50, max: 220, default: 110, unit: 'bpm', step: 1 },
+    ],
+  },
+  mult: {
+    name: 'SIGNAL MULT & INV',
+    category: 'Utility',
+    width: 110,
+    desc: '1-to-3 audio signal splitter with dual direct outs and phase inverted output.',
+    inputs: ['in'],
+    outputs: ['out1', 'out2', 'inv'],
+    controls: [],
+  },
+  euclid: {
+    name: 'EUCLIDEAN RHYTHM',
+    category: 'Utility',
+    width: 180,
+    desc: 'Euclidean pulse generator (E(k,n)) for intricate polyrhythms with pulse audio click.',
+    inputs: ['in'],
+    outputs: ['out'],
+    controls: [
+      { id: 'bpm', label: 'BPM', type: 'knob', min: 40, max: 240, default: 120, unit: 'bpm', step: 1 },
+      { id: 'steps', label: 'STEPS', type: 'knob', min: 2, max: 16, default: 16, unit: '', step: 1 },
+      { id: 'pulses', label: 'PULSES', type: 'knob', min: 1, max: 16, default: 7, unit: '', step: 1 },
+      { id: 'offset', label: 'OFFSET', type: 'knob', min: 0, max: 15, default: 0, unit: '', step: 1 },
+    ],
+  },
+  turing: {
+    name: 'TURING MACHINE',
+    category: 'Source',
+    width: 190,
+    desc: 'Pseudo-random looping shift register generating evolving quantized melodies.',
+    inputs: [],
+    outputs: ['out'],
+    controls: [
+      { id: 'rate', label: 'RATE', type: 'knob', min: 0.5, max: 20, default: 4, unit: 'Hz', step: 0.5 },
+      { id: 'length', label: 'LENGTH', type: 'knob', min: 4, max: 32, default: 16, unit: '', step: 1 },
+      { id: 'lock', label: 'LOCK', type: 'knob', min: 0, max: 1, default: 0.85, unit: '', step: 0.01 },
+      { id: 'scale', label: 'SCALE', type: 'select', options: ['minor', 'pentatonic', 'dorian', 'chromatic'], default: 'minor' },
+    ],
+  },
+  sample_hold: {
+    name: 'SAMPLE & HOLD',
+    category: 'Utility',
+    width: 170,
+    desc: 'Analog sample-and-hold circuit with internal noise and slew glide.',
+    inputs: ['in'],
+    outputs: ['out'],
+    controls: [
+      { id: 'rate', label: 'RATE', type: 'knob', min: 0.5, max: 30, default: 6, unit: 'Hz', step: 0.5 },
+      { id: 'glide', label: 'GLIDE', type: 'knob', min: 0, max: 0.5, default: 0.05, unit: 's', step: 0.01 },
+      { id: 'source', label: 'SRC', type: 'select', options: ['internal_noise', 'input_jack'], default: 'internal_noise' },
+    ],
+  },
+  adsr: {
+    name: 'ADSR ENVELOPE',
+    category: 'Modulation',
+    width: 180,
+    desc: '4-stage envelope generator with VCA and auto-looping cycle mode.',
+    inputs: ['in'],
+    outputs: ['out'],
+    controls: [
+      { id: 'attack', label: 'ATTACK', type: 'knob', min: 1, max: 2000, default: 40, unit: 'ms', step: 5 },
+      { id: 'decay', label: 'DECAY', type: 'knob', min: 10, max: 3000, default: 250, unit: 'ms', step: 10 },
+      { id: 'sustain', label: 'SUSTAIN', type: 'knob', min: 0, max: 1, default: 0.6, unit: '', step: 0.01 },
+      { id: 'release', label: 'RELEASE', type: 'knob', min: 10, max: 4000, default: 600, unit: 'ms', step: 10 },
+      { id: 'cycle', label: 'MODE', type: 'select', options: ['loop', 'trigger'], default: 'loop' },
+    ],
+  },
+  maths: {
+    name: 'MATHS FUNCTION',
+    category: 'Modulation',
+    width: 190,
+    desc: 'Dual slew & function generator with log-to-exp curve shaping and cycle mode.',
+    inputs: ['in'],
+    outputs: ['out'],
+    controls: [
+      { id: 'rise', label: 'RISE', type: 'knob', min: 5, max: 2000, default: 80, unit: 'ms', step: 5 },
+      { id: 'fall', label: 'FALL', type: 'knob', min: 10, max: 3000, default: 350, unit: 'ms', step: 10 },
+      { id: 'curve', label: 'CURVE', type: 'knob', min: -1, max: 1, default: 0, unit: '', step: 0.05 },
+      { id: 'level', label: 'LEVEL', type: 'knob', min: 0, max: 1, default: 0.8, unit: '', step: 0.01 },
+    ],
+  },
+  harmonic: {
+    name: 'HARMONIC OSC',
+    category: 'Source',
+    width: 220,
+    desc: 'Additive sine generator with fundamental pitch and 6 overtone sliders.',
+    inputs: [],
+    outputs: ['out'],
+    controls: [
+      { id: 'freq', label: 'PITCH', type: 'knob', min: 30, max: 600, default: 110, unit: 'Hz', step: 0.5 },
+      { id: 'h1', label: '1ST (F0)', type: 'knob', min: 0, max: 1, default: 0.9, unit: '', step: 0.01 },
+      { id: 'h2', label: '2ND', type: 'knob', min: 0, max: 1, default: 0.5, unit: '', step: 0.01 },
+      { id: 'h3', label: '3RD', type: 'knob', min: 0, max: 1, default: 0.4, unit: '', step: 0.01 },
+      { id: 'h4', label: '4TH', type: 'knob', min: 0, max: 1, default: 0.25, unit: '', step: 0.01 },
+      { id: 'h5', label: '5TH', type: 'knob', min: 0, max: 1, default: 0.15, unit: '', step: 0.01 },
+      { id: 'h6', label: '6TH', type: 'knob', min: 0, max: 1, default: 0.1, unit: '', step: 0.01 },
+    ],
+  },
+  bytebeat: {
+    name: 'BYTEBEAT GLITCH',
+    category: 'Lo-Fi',
+    width: 180,
+    desc: 'Algorithmic C-style one-line mathematical bytebeat oscillator.',
+    inputs: [],
+    outputs: ['out'],
+    controls: [
+      { id: 'clock', label: 'CLOCK', type: 'knob', min: 4000, max: 24000, default: 8000, unit: 'Hz', step: 500 },
+      { id: 'algo', label: 'ALGO', type: 'select', options: ['viznut', 'crowd', 'fractal', 'acid_glitch'], default: 'viznut' },
+      { id: 'p1', label: 'PARAM 1', type: 'knob', min: 1, max: 32, default: 5, unit: '', step: 1 },
+      { id: 'p2', label: 'PARAM 2', type: 'knob', min: 1, max: 16, default: 7, unit: '', step: 1 },
+    ],
+  },
+  spring: {
+    name: 'SPRING REVERB',
+    category: 'Space',
+    width: 180,
+    desc: 'Mechanical dual-spring tank emulator with coil saturation and tension damping.',
+    inputs: ['in'],
+    outputs: ['out'],
+    controls: [
+      { id: 'tension', label: 'TENSION', type: 'knob', min: 0.1, max: 5, default: 2.2, unit: 's', step: 0.1 },
+      { id: 'drive', label: 'DRIVE', type: 'knob', min: 1, max: 4, default: 1.8, unit: '', step: 0.1 },
+      { id: 'damp', label: 'DAMP', type: 'knob', min: 1000, max: 8000, default: 3400, unit: 'Hz', step: 100 },
+      { id: 'mix', label: 'DRY/WET', type: 'knob', min: 0, max: 1, default: 0.55, unit: '', step: 0.01 },
+    ],
+  },
+  pingpong: {
+    name: 'STEREO PING-PONG',
+    category: 'Time',
+    width: 190,
+    desc: 'Cross-feedback dual stereo delay bouncing between left and right channels.',
+    inputs: ['in'],
+    outputs: ['out'],
+    controls: [
+      { id: 'time', label: 'TIME', type: 'knob', min: 30, max: 1000, default: 320, unit: 'ms', step: 10 },
+      { id: 'feedback', label: 'FBACK', type: 'knob', min: 0, max: 0.95, default: 0.6, unit: '', step: 0.01 },
+      { id: 'spread', label: 'SPREAD', type: 'knob', min: 0, max: 1, default: 0.85, unit: '', step: 0.01 },
+      { id: 'mix', label: 'DRY/WET', type: 'knob', min: 0, max: 1, default: 0.5, unit: '', step: 0.01 },
+    ],
+  },
+  svf: {
+    name: 'STATE VARIABLE SVF',
+    category: 'Filter',
+    width: 180,
+    desc: '12dB/oct Oberheim-style multi-mode SVF morphing LP -> Notch -> HP.',
+    inputs: ['in'],
+    outputs: ['out'],
+    controls: [
+      { id: 'cutoff', label: 'CUTOFF', type: 'knob', min: 40, max: 12000, default: 650, unit: 'Hz', step: 1 },
+      { id: 'res', label: 'RES (Q)', type: 'knob', min: 0.5, max: 15, default: 4.0, unit: '', step: 0.1 },
+      { id: 'morph', label: 'MORPH', type: 'knob', min: 0, max: 1, default: 0.25, unit: '', step: 0.01 },
+      { id: 'drive', label: 'DRIVE', type: 'knob', min: 1, max: 3, default: 1.2, unit: '', step: 0.1 },
+    ],
+  },
+  rotary: {
+    name: 'ROTARY SPEAKER',
+    category: 'Spatial',
+    width: 180,
+    desc: 'Leslie 122 rotating horn & drum cabinet simulator with Doppler motion.',
+    inputs: ['in'],
+    outputs: ['out'],
+    controls: [
+      { id: 'speed', label: 'SPEED', type: 'select', options: ['slow', 'fast', 'brake'], default: 'fast' },
+      { id: 'depth', label: 'DEPTH', type: 'knob', min: 0, max: 1, default: 0.7, unit: '', step: 0.01 },
+      { id: 'crossover', label: 'CROSSOVER', type: 'knob', min: 400, max: 1200, default: 800, unit: 'Hz', step: 20 },
+      { id: 'mix', label: 'DRY/WET', type: 'knob', min: 0, max: 1, default: 0.8, unit: '', step: 0.01 },
+    ],
+  },
+  tape_warmer: {
+    name: 'PORTASTUDIO TAPE',
+    category: 'Lo-Fi',
+    width: 180,
+    desc: '4-track magnetic cassette simulator with tape saturation, wow, and hiss.',
+    inputs: ['in'],
+    outputs: ['out'],
+    controls: [
+      { id: 'saturation', label: 'DRIVE', type: 'knob', min: 1, max: 5, default: 2.4, unit: '', step: 0.1 },
+      { id: 'warmth', label: 'WARMTH', type: 'knob', min: 0, max: 1, default: 0.65, unit: '', step: 0.01 },
+      { id: 'wow', label: 'WOW/FLUT', type: 'knob', min: 0, max: 1, default: 0.35, unit: '', step: 0.01 },
+      { id: 'hiss', label: 'HISS', type: 'knob', min: 0, max: 0.3, default: 0.04, unit: '', step: 0.01 },
+    ],
+  },
+  sub_harmonic: {
+    name: 'SUB-BASS HARMONIC',
+    category: 'Source',
+    width: 180,
+    desc: 'Subharmonic frequency divider creating -1 and -2 octave low-end weight.',
+    inputs: ['in'],
+    outputs: ['out'],
+    controls: [
+      { id: 'sub1', label: '-1 OCT', type: 'knob', min: 0, max: 1, default: 0.7, unit: '', step: 0.01 },
+      { id: 'sub2', label: '-2 OCT', type: 'knob', min: 0, max: 1, default: 0.45, unit: '', step: 0.01 },
+      { id: 'lowCut', label: 'LOW CUT', type: 'knob', min: 20, max: 120, default: 35, unit: 'Hz', step: 1 },
+    ],
+  },
+  crossfader: {
+    name: 'A/B CROSSFADER',
+    category: 'Utility',
+    width: 170,
+    desc: 'Dual-channel crossfader with equal-power trigonometric morphing.',
+    inputs: ['inA', 'inB'],
+    outputs: ['out'],
+    controls: [
+      { id: 'fade', label: 'FADE', type: 'knob', min: 0, max: 1, default: 0.5, unit: '', step: 0.01 },
+      { id: 'curve', label: 'CURVE', type: 'select', options: ['equal_power', 'linear', 'cut'], default: 'equal_power' },
+    ],
+  },
+  quad_lfo: {
+    name: 'QUAD MORPHING LFO',
+    category: 'Modulation',
+    width: 180,
+    desc: '4-phase quadrature low-frequency modulation oscillator.',
+    inputs: [],
+    outputs: ['out'],
+    controls: [
+      { id: 'rate', label: 'RATE', type: 'knob', min: 0.05, max: 20, default: 1.2, unit: 'Hz', step: 0.05 },
+      { id: 'shape', label: 'SHAPE', type: 'select', options: ['sine', 'triangle', 'sawtooth', 'square'], default: 'sine' },
+      { id: 'level', label: 'LEVEL', type: 'knob', min: 0, max: 1, default: 0.8, unit: '', step: 0.01 },
+    ],
+  },
+  midi_player: {
+    name: 'MIDI FILE PLAYER',
+    category: 'Source',
+    width: 380,
+    desc: 'Multi-track Standard MIDI File player with live track mute/solo mixer, polyphonic synth, CV/Gate outs, and drag-and-drop.',
+    inputs: [],
+    outputs: ['out', 'pitch', 'gate', 'vel'],
+    controls: [
+      { id: 'rate', label: 'SPEED', type: 'knob', min: 0.25, max: 3.0, default: 1.0, unit: 'x', step: 0.05 },
+      { id: 'transpose', label: 'TRANS', type: 'knob', min: -24, max: 24, default: 0, unit: 'st', step: 1 },
+      { id: 'level', label: 'LEVEL', type: 'knob', min: 0, max: 1, default: 0.8, unit: '', step: 0.01 },
+      { id: 'timbre', label: 'TIMBRE', type: 'select', options: ['analog_saw', 'poly_epiano', 'chiptune', 'fm_bell', 'sine_sub'], default: 'analog_saw' },
+    ],
+  },
+};
+
+class ModularRackUI {
+  constructor(rackElement, dspEngine, cableManager) {
+    this.rack = rackElement;
+    this.dsp = dspEngine;
+    this.cables = cableManager;
+    this.modulesState = []; // [{ id, type, row, params }]
+    this.selectedModuleEl = null;
+    this.selectedRowIdx = 0;
+
+    this.initDrawer();
+    this.initMidiDrawer();
+    this.initShortcuts();
+    this.startOscilloscope();
+  }
+
+  getRowCount() {
+    return this.rack.querySelectorAll('.rack-row').length;
+  }
+
+  ensureRow(rowIdx) {
+    let rowEl = this.rack.querySelector(`.rack-row[data-row-idx="${rowIdx}"]`);
+    if (rowEl) return rowEl;
+
+    let screws = '';
+    for (let i = 0; i < 48; i++) {
+      screws += '<div class="rail-screw"></div>';
+    }
+
+    rowEl = document.createElement('div');
+    rowEl.classList.add('rack-row');
+    rowEl.dataset.rowIdx = rowIdx;
+
+    const rmBtn = rowIdx > 0
+      ? `<button class="remove-row-btn" data-row="${rowIdx}" title="Remove Empty Row">&times;</button>`
+      : '';
+
+    rowEl.innerHTML = `
+      <div class="rack-rail top-rail">
+        <div class="rail-screws-strip">${screws}</div>
+        <div class="row-tag">
+          <span class="row-num">ROW ${rowIdx + 1}</span>
+          ${rmBtn}
+        </div>
+      </div>
+      <div class="rack-modules-slot" data-row-idx="${rowIdx}"></div>
+      <div class="rack-rail bottom-rail">
+        <div class="rail-screws-strip">${screws}</div>
+      </div>
+    `;
+
+    const removeBtn = rowEl.querySelector('.remove-row-btn');
+    if (removeBtn) {
+      removeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.removeRow(rowIdx);
+      });
+    }
+
+    rowEl.addEventListener('click', () => {
+      this.selectedRowIdx = rowIdx;
+      this.rack.querySelectorAll('.rack-row').forEach(r => r.classList.remove('active-row'));
+      rowEl.classList.add('active-row');
+    });
+
+    this.rack.appendChild(rowEl);
+    return rowEl;
+  }
+
+  addRow() {
+    const nextIdx = this.getRowCount();
+    this.ensureRow(nextIdx);
+    this.selectedRowIdx = nextIdx;
+    this.cables.render();
+    if (window.onPatchModified) window.onPatchModified();
+  }
+
+  removeRow(rowIdx) {
+    const slot = this.rack.querySelector(`.rack-modules-slot[data-row-idx="${rowIdx}"]`);
+    if (slot && slot.children.length > 0) {
+      alert(`Cannot remove Row ${rowIdx + 1}: remove its modules first.`);
+      return;
+    }
+    const rowEl = this.rack.querySelector(`.rack-row[data-row-idx="${rowIdx}"]`);
+    if (rowEl) rowEl.remove();
+
+    this.rack.querySelectorAll('.rack-row').forEach((r, idx) => {
+      r.dataset.rowIdx = idx;
+      const numSpan = r.querySelector('.row-num');
+      if (numSpan) numSpan.textContent = `ROW ${idx + 1}`;
+      const slotEl = r.querySelector('.rack-modules-slot');
+      if (slotEl) slotEl.dataset.rowIdx = idx;
+    });
+    this.cables.render();
+    if (window.onPatchModified) window.onPatchModified();
+  }
+
+  renderModule(modData) {
+    const def = MODULE_DEFINITIONS[modData.type];
+    if (!def) return null;
+
+    const rowIdx = modData.row !== undefined ? modData.row : (this.selectedRowIdx || 0);
+    this.ensureRow(rowIdx);
+    const slot = this.rack.querySelector(`.rack-modules-slot[data-row-idx="${rowIdx}"]`);
+
+    const el = document.createElement('div');
+    el.classList.add('module-panel');
+    el.dataset.id = modData.id;
+    el.dataset.type = modData.type;
+    el.dataset.row = rowIdx;
+    el.style.width = `${def.width}px`;
+
+    // Screw holes (Eurorack authentic)
+    const screwsHtml = `
+      <div class="screw screw-tl"></div>
+      <div class="screw screw-tr"></div>
+      <div class="screw screw-bl"></div>
+      <div class="screw screw-br"></div>
+    `;
+
+    // Header with remove button (except permanent mixer)
+    const removeBtnHtml = modData.type !== 'mixer'
+      ? `<button class="mod-remove-btn" title="Remove Module">&times;</button>`
+      : '';
+
+    const headerHtml = `
+      <div class="module-header">
+        <div class="module-title">${def.name}</div>
+        ${removeBtnHtml}
+      </div>
+    `;
+
+    // Controls container
+    let controlsHtml = '<div class="module-controls">';
+    for (const c of def.controls) {
+      const val = modData.params[c.id] !== undefined ? modData.params[c.id] : c.default;
+      if (c.type === 'knob') {
+        controlsHtml += `
+          <div class="knob-wrap" data-param="${c.id}">
+            <div class="knob" data-min="${c.min}" data-max="${c.max}" data-step="${c.step || 0.01}" data-val="${val}" data-unit="${c.unit || ''}">
+              <div class="knob-dial">
+                <div class="knob-pointer"></div>
+              </div>
+            </div>
+            <span class="control-label">${c.label}</span>
+            <span class="knob-value">${this.formatVal(val, c.unit)}</span>
+          </div>
+        `;
+      } else if (c.type === 'select') {
+        let opts = '';
+        for (const opt of c.options) {
+          opts += `<option value="${opt}" ${opt === val ? 'selected' : ''}>${opt.toUpperCase()}</option>`;
+        }
+        controlsHtml += `
+          <div class="select-wrap" data-param="${c.id}">
+            <span class="control-label">${c.label}</span>
+            <select class="mod-select">${opts}</select>
+          </div>
+        `;
+      }
+    }
+    controlsHtml += '</div>';
+
+    // Oscilloscope screen for Mixer
+    let scopeHtml = '';
+    if (modData.type === 'mixer') {
+      scopeHtml = `
+        <div class="scope-container">
+          <canvas id="scope-canvas" width="220" height="60"></canvas>
+        </div>
+      `;
+    }
+
+    // Custom faceplate for MIDI Player
+    let midiHtml = '';
+    if (modData.type === 'midi_player') {
+      midiHtml = `
+        <div class="midi-player-faceplate" data-mod-id="${modData.id}">
+          <div class="midi-file-zone" title="Drag & Drop .mid file here or click Browse">
+            <div class="midi-file-info">
+              <div class="midi-file-name">NO MIDI LOADED</div>
+              <div class="midi-file-sub">DROP .MID FILE HERE</div>
+            </div>
+            <label class="midi-browse-btn" title="Browse local file">
+              BROWSE<input type="file" accept=".mid,.midi" class="midi-file-input" style="display:none">
+            </label>
+          </div>
+          <div class="midi-progress-bar-wrap">
+            <div class="midi-progress-bar"></div>
+          </div>
+          <div class="midi-transport-row">
+            <button class="midi-transport-btn midi-play-btn active">[&#9654; PLAY]</button>
+            <button class="midi-transport-btn midi-rewind-btn">[&#9198; REWIND]</button>
+            <button class="midi-transport-btn midi-loop-btn active">[&#x27F3; LOOP]</button>
+          </div>
+          <div style="display:flex; justify-content:space-between; font-size:8px; color:var(--omo-dim); font-weight:700; margin-top:2px;">
+            <span>TRACKS / LAYERS</span>
+            <span class="midi-track-count">0 TRACKS</span>
+          </div>
+          <div class="midi-tracks-container">
+            <div style="font-size:8px; color:var(--omo-dim); text-align:center; padding:10px 0;">Load a MIDI file to view & mute tracks</div>
+          </div>
+        </div>
+      `;
+    }
+
+    // Jacks strip
+    let jacksHtml = '<div class="jacks-strip">';
+    if (def.inputs.length > 0) {
+      jacksHtml += '<div class="jacks-col inputs-col">';
+      for (const inJack of def.inputs) {
+        jacksHtml += `
+          <div class="jack-wrap">
+            <span class="jack-label">${inJack.toUpperCase()}</span>
+            <div class="jack" data-module="${modData.id}" data-jack="${inJack}" data-direction="in">
+              <div class="jack-bezel"></div>
+              <div class="jack-hole"></div>
+            </div>
+          </div>
+        `;
+      }
+      jacksHtml += '</div>';
+    }
+
+    if (def.outputs.length > 0) {
+      jacksHtml += '<div class="jacks-col outputs-col">';
+      for (const outJack of def.outputs) {
+        jacksHtml += `
+          <div class="jack-wrap">
+            <span class="jack-label">${outJack.toUpperCase()}</span>
+            <div class="jack" data-module="${modData.id}" data-jack="${outJack}" data-direction="out">
+              <div class="jack-bezel"></div>
+              <div class="jack-hole"></div>
+            </div>
+          </div>
+        `;
+      }
+      jacksHtml += '</div>';
+    }
+    jacksHtml += '</div>';
+
+    el.innerHTML = screwsHtml + headerHtml + scopeHtml + midiHtml + controlsHtml + jacksHtml;
+
+    // Attach interaction handlers
+    this.bindModuleEvents(el, modData);
+    slot.appendChild(el);
+    return el;
+  }
+
+  bindModuleEvents(el, modData) {
+    const modId = modData.id;
+    const dspMod = this.dsp.modules.get(modId);
+
+    el.addEventListener('mouseenter', () => { this.selectedModuleEl = el; });
+
+    const rmBtn = el.querySelector('.mod-remove-btn');
+    if (rmBtn) {
+      rmBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.removeModule(modId);
+      });
+    }
+
+    el.querySelectorAll('.knob').forEach(knobEl => {
+      this.bindKnob(knobEl, (val) => {
+        const paramId = knobEl.closest('.knob-wrap').dataset.param;
+        modData.params[paramId] = val;
+        if (dspMod) dspMod.setParam(paramId, val);
+        const valSpan = knobEl.closest('.knob-wrap').querySelector('.knob-value');
+        const unit = knobEl.dataset.unit || '';
+        valSpan.textContent = this.formatVal(val, unit);
+        if (window.onPatchModified) window.onPatchModified();
+      });
+    });
+
+    el.querySelectorAll('.mod-select').forEach(selEl => {
+      selEl.addEventListener('change', (e) => {
+        const paramId = selEl.closest('.select-wrap').dataset.param;
+        const val = e.target.value;
+        modData.params[paramId] = val;
+        if (dspMod) dspMod.setParam(paramId, val);
+        if (window.onPatchModified) window.onPatchModified();
+      });
+    });
+
+    el.querySelectorAll('.jack').forEach(jackEl => {
+      jackEl.addEventListener('mousedown', (e) => {
+        if (e.button !== 0) return;
+        const isOut = jackEl.dataset.direction === 'out';
+        if (isOut) {
+          e.preventDefault();
+          this.cables.startDragging(jackEl);
+        } else {
+          const cable = this.cables.cables.find(
+            c => c.to.moduleId === modId && c.to.jack === jackEl.dataset.jack
+          );
+          if (cable) {
+            this.cables.removeCable(cable.id);
+          }
+        }
+      });
+    });
+
+    // Special handlers for MIDI Player faceplate
+    if (modData.type === 'midi_player' && dspMod) {
+      const faceplate = el.querySelector('.midi-player-faceplate');
+      const dropZone = faceplate ? faceplate.querySelector('.midi-file-zone') : null;
+      const fileNameEl = faceplate ? faceplate.querySelector('.midi-file-name') : null;
+      const fileSubEl = faceplate ? faceplate.querySelector('.midi-file-sub') : null;
+      const progressBar = faceplate ? faceplate.querySelector('.midi-progress-bar') : null;
+      const playBtn = faceplate ? faceplate.querySelector('.midi-play-btn') : null;
+      const rewBtn = faceplate ? faceplate.querySelector('.midi-rewind-btn') : null;
+      const loopBtn = faceplate ? faceplate.querySelector('.midi-loop-btn') : null;
+      const tracksContainer = faceplate ? faceplate.querySelector('.midi-tracks-container') : null;
+      const trackCountEl = faceplate ? faceplate.querySelector('.midi-track-count') : null;
+      const fileInput = faceplate ? faceplate.querySelector('.midi-file-input') : null;
+
+      const updateTracksUI = (tracks) => {
+        if (!tracksContainer || !tracks) return;
+        if (trackCountEl) trackCountEl.textContent = `${tracks.length} TRACKS`;
+        tracksContainer.innerHTML = '';
+        tracks.forEach(track => {
+          const row = document.createElement('div');
+          row.classList.add('midi-track-row');
+          row.dataset.trackId = track.id;
+          row.innerHTML = `
+            <div class="midi-track-led" data-track-id="${track.id}"></div>
+            <div class="midi-track-name" title="${track.name}">${track.name}</div>
+            <span class="midi-track-count">${track.notes.length}n</span>
+            <button class="midi-track-btn iso-btn" title="Isolate single track (mute all other tracks)">1-TRK</button>
+            <button class="midi-track-btn mute-btn ${track.muted ? 'active' : ''}" title="Mute Track">M</button>
+            <button class="midi-track-btn solo-btn ${track.solo ? 'active' : ''}" title="Solo Track">S</button>
+          `;
+          const isoBtn = row.querySelector('.iso-btn');
+          const mBtn = row.querySelector('.mute-btn');
+          const sBtn = row.querySelector('.solo-btn');
+          isoBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            dspMod.isolateTrack(track.id);
+            tracksContainer.querySelectorAll('.midi-track-row').forEach(r => {
+              const tid = parseInt(r.dataset.trackId);
+              const isTarget = (tid === track.id);
+              r.querySelector('.mute-btn').classList.toggle('active', !isTarget);
+              r.querySelector('.solo-btn').classList.remove('active');
+            });
+            if (fileSubEl) {
+              fileSubEl.textContent = `★ ISOLATED 1-TRACK: ${track.name} (${track.notes.length}n)`;
+            }
+          });
+          mBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            dspMod.toggleTrackMute(track.id);
+            mBtn.classList.toggle('active', !!track.muted);
+          });
+          sBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            dspMod.toggleTrackSolo(track.id);
+            tracksContainer.querySelectorAll('.midi-track-row').forEach(r => {
+              const tid = parseInt(r.dataset.trackId);
+              const t = dspMod.midiData.tracks.find(x => x.id === tid);
+              if (t) {
+                r.querySelector('.solo-btn').classList.toggle('active', !!t.solo);
+              }
+            });
+          });
+          tracksContainer.appendChild(row);
+        });
+      };
+
+      dspMod.onProgressUpdate = (info) => {
+        if (progressBar && info.totalDuration > 0) {
+          const pct = Math.min(100, (info.currentTime / info.totalDuration) * 100);
+          progressBar.style.width = `${pct}%`;
+        }
+        if (info.activeTrackIds && tracksContainer) {
+          tracksContainer.querySelectorAll('.midi-track-led').forEach(led => {
+            const tid = parseInt(led.dataset.trackId);
+            led.classList.toggle('active', info.activeTrackIds.has(tid));
+          });
+        }
+      };
+
+      const loadBuffer = (arrayBuffer, name) => {
+        try {
+          const parsed = window.parseMidiFile(arrayBuffer, name);
+          dspMod.loadMidi(parsed, name);
+          if (fileNameEl) fileNameEl.textContent = parsed.title;
+          const isSingle = (parsed.tracks.length <= 1);
+          if (fileSubEl) fileSubEl.textContent = `${parsed.bpm} BPM • ${parsed.duration.toFixed(1)}s • ${parsed.tracks.length} track${isSingle ? ' (1-TRK)' : 's'}`;
+          updateTracksUI(parsed.tracks);
+          if (window.onPatchModified) window.onPatchModified();
+          return parsed;
+        } catch (err) {
+          console.error('Failed to parse MIDI file:', err);
+          if (fileNameEl) fileNameEl.textContent = 'PARSE ERROR';
+          if (fileSubEl) fileSubEl.textContent = err.message || 'Invalid MIDI';
+          return null;
+        }
+      };
+
+      if (fileInput) {
+        fileInput.addEventListener('change', (e) => {
+          const file = e.target.files[0];
+          if (file) {
+            const reader = new FileReader();
+            reader.onload = (ev) => loadBuffer(ev.target.result, file.name);
+            reader.readAsArrayBuffer(file);
+          }
+        });
+      }
+
+      if (dropZone) {
+        dropZone.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          dropZone.classList.add('drag-over');
+        });
+        dropZone.addEventListener('dragleave', () => {
+          dropZone.classList.remove('drag-over');
+        });
+        dropZone.addEventListener('drop', async (e) => {
+          e.preventDefault();
+          dropZone.classList.remove('drag-over');
+
+          if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+            const file = e.dataTransfer.files[0];
+            const reader = new FileReader();
+            reader.onload = (ev) => loadBuffer(ev.target.result, file.name);
+            reader.readAsArrayBuffer(file);
+            return;
+          }
+
+          const jsonStr = e.dataTransfer.getData('application/json') || e.dataTransfer.getData('text/plain');
+          if (jsonStr) {
+            try {
+              const data = JSON.parse(jsonStr);
+              if (data.download_url) {
+                await el._loadMidiUrl(data.download_url, data.title || data.filename, !!data.auto_isolate);
+              }
+            } catch (err) {
+              console.error('Drag load error:', err);
+            }
+          }
+        });
+      }
+
+      if (playBtn) {
+        playBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const isPlaying = dspMod.togglePlay();
+          playBtn.innerHTML = isPlaying ? '[&#9654; PLAY]' : '[&#10074;&#10074; PAUSE]';
+          playBtn.classList.toggle('active', isPlaying);
+        });
+      }
+
+      if (rewBtn) {
+        rewBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          dspMod.rewind();
+        });
+      }
+
+      if (loopBtn) {
+        loopBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const looping = dspMod.toggleLoop();
+          loopBtn.classList.toggle('active', looping);
+        });
+      }
+
+      el._loadMidiUrl = async (url, title, autoIsolate = false) => {
+        try {
+          if (fileNameEl) fileNameEl.textContent = 'LOADING...';
+          const resp = await fetch(url);
+          const buf = await resp.arrayBuffer();
+          const parsed = loadBuffer(buf, title);
+          if (autoIsolate && parsed && parsed.tracks && parsed.tracks.length > 1) {
+            const targetTrack = parsed.tracks.find(t => /bass|lead|riff|303|synth/i.test(t.name) && t.notes.length > 0)
+              || parsed.tracks.find(t => t.notes.length > 0)
+              || parsed.tracks[0];
+            if (targetTrack) {
+              dspMod.isolateTrack(targetTrack.id);
+              if (tracksContainer) {
+                tracksContainer.querySelectorAll('.midi-track-row').forEach(r => {
+                  const tid = parseInt(r.dataset.trackId);
+                  r.querySelector('.mute-btn').classList.toggle('active', tid !== targetTrack.id);
+                });
+              }
+              if (fileSubEl) {
+                fileSubEl.textContent = `★ ISOLATED 1-TRACK: ${targetTrack.name} (${targetTrack.notes.length}n)`;
+              }
+            }
+          }
+          return parsed;
+        } catch (err) {
+          console.error('Failed to load MIDI from URL:', err);
+        }
+      };
+
+      if (modData.params && modData.params.starter) {
+        el._loadMidiUrl(`/api/midi/download?starter=${encodeURIComponent(modData.params.starter)}`, modData.params.starter);
+      } else if (!dspMod.midiData) {
+        el._loadMidiUrl('/api/midi/download?starter=Acid%20303%20Resonance%20Riff%20(1-Track).mid', 'Acid 303 Resonance Riff (1-Track)');
+      }
+    }
+  }
+
+  bindKnob(knobEl, onChange) {
+    const min = parseFloat(knobEl.dataset.min);
+    const max = parseFloat(knobEl.dataset.max);
+    let val = parseFloat(knobEl.dataset.val);
+    const step = parseFloat(knobEl.dataset.step) || 0.01;
+    const dial = knobEl.querySelector('.knob-dial');
+
+    const updateRotation = (currentVal) => {
+      const pct = (currentVal - min) / (max - min);
+      const deg = -140 + pct * 280;
+      dial.style.transform = `rotate(${deg}deg)`;
+    };
+
+    updateRotation(val);
+
+    let startY = 0;
+    let startVal = 0;
+
+    const onPointerMove = (e) => {
+      const dy = startY - e.clientY;
+      const range = max - min;
+      const speed = e.shiftKey ? 0.001 : 0.005;
+      let newVal = startVal + dy * range * speed;
+      newVal = Math.max(min, Math.min(max, newVal));
+      newVal = Math.round(newVal / step) * step;
+
+      val = newVal;
+      knobEl.dataset.val = val;
+      updateRotation(val);
+      onChange(val);
+    };
+
+    const onPointerUp = () => {
+      window.removeEventListener('mousemove', onPointerMove);
+      window.removeEventListener('mouseup', onPointerUp);
+      document.body.classList.remove('dragging-knob');
+      this.cables.toggleGhost(false);
+    };
+
+    knobEl.addEventListener('mousedown', (e) => {
+      if (e.button !== 0) return;
+      e.preventDefault();
+      this.dsp.ensureContext();
+      startY = e.clientY;
+      startVal = parseFloat(knobEl.dataset.val);
+      document.body.classList.add('dragging-knob');
+      this.cables.toggleGhost(true);
+
+      window.addEventListener('mousemove', onPointerMove);
+      window.addEventListener('mouseup', onPointerUp);
+    });
+
+    knobEl.addEventListener('dblclick', () => {
+      val = min + (max - min) * 0.5;
+      knobEl.dataset.val = val;
+      updateRotation(val);
+      onChange(val);
+    });
+  }
+
+  formatVal(val, unit) {
+    if (unit === 'Hz') {
+      return val >= 1000 ? `${(val / 1000).toFixed(1)}k` : `${Math.round(val)}Hz`;
+    }
+    if (unit === 'ms') return `${Math.round(val)}ms`;
+    if (unit === 's') return `${val.toFixed(1)}s`;
+    if (unit === 'ct') return `${Math.round(val)}ct`;
+    if (unit === 'bit') return `${Math.round(val)}b`;
+    if (unit === 'x') return `${Math.round(val)}x`;
+    if (unit === 'dB') return `${val > 0 ? '+' : ''}${val.toFixed(1)}dB`;
+    if (unit === ':1') return `${val}:1`;
+    if (unit === 'bpm') return `${Math.round(val)}bpm`;
+    return val.toFixed(2);
+  }
+
+  removeModule(id) {
+    this.dsp.removeModule(id);
+    const el = this.rack.querySelector(`.module-panel[data-id="${id}"]`);
+    if (el) el.remove();
+    this.modulesState = this.modulesState.filter(m => m.id !== id);
+    this.cables.render();
+    if (window.onPatchModified) window.onPatchModified();
+  }
+
+  addModule(type, targetRow = null) {
+    const id = `${type}_${Date.now().toString(36).substr(-4)}`;
+    const def = MODULE_DEFINITIONS[type];
+    const params = {};
+    for (const c of def.controls) {
+      params[c.id] = c.default;
+    }
+    const row = targetRow !== null ? targetRow : (this.selectedRowIdx || 0);
+    const modData = { id, type, row, params };
+    this.dsp.createModule(type, id, params);
+    this.modulesState.push(modData);
+    this.renderModule(modData);
+    this.cables.render();
+    if (window.onPatchModified) window.onPatchModified();
+    return modData;
+  }
+
+  loadState(state) {
+    this.rack.innerHTML = '';
+    this.dsp.clearAll();
+    this.modulesState = [];
+
+    // Determine total rows needed
+    let maxRow = 0;
+    if (state.modules) {
+      for (const m of state.modules) {
+        if (m.row !== undefined && m.row > maxRow) maxRow = m.row;
+      }
+    }
+    const totalRows = Math.max(state.rowCount || 1, maxRow + 1);
+    for (let r = 0; r < totalRows; r++) {
+      this.ensureRow(r);
+    }
+
+    // Instantiate modules
+    for (const m of state.modules) {
+      this.dsp.createModule(m.type, m.id, m.params || {});
+      this.modulesState.push(m);
+      this.renderModule(m);
+    }
+
+    // Connect cables across rows
+    setTimeout(() => {
+      if (state.cables) {
+        for (const c of state.cables) {
+          this.cables.addCable(c.from.moduleId, c.from.jack, c.to.moduleId, c.to.jack, c.color);
+        }
+      }
+      this.cables.render();
+    }, 60);
+  }
+
+  initDrawer() {
+    const drawer = document.getElementById('module-drawer');
+    const catalogList = document.getElementById('catalog-list');
+    const toggleBtn = document.getElementById('toggle-drawer-btn');
+    const closeBtn = document.getElementById('close-drawer-btn');
+    const filterContainer = document.getElementById('catalog-filters');
+
+    const toggle = () => { drawer.classList.toggle('open'); };
+    if (toggleBtn) toggleBtn.addEventListener('click', toggle);
+    if (closeBtn) closeBtn.addEventListener('click', toggle);
+    const titleEl = drawer.querySelector('.drawer-title');
+    if (titleEl) {
+      titleEl.textContent = `MODULE CATALOG (${Object.keys(MODULE_DEFINITIONS).length} MODULES)`;
+    }
+
+    // Categories filter
+    const categories = ['ALL', 'Source', 'Filter', 'Distortion', 'Lo-Fi', 'Time', 'Space', 'Modulation', 'Texture', 'Physical', 'Utility', 'Dynamics', 'Spatial', 'Percussion'];
+    if (filterContainer) {
+      filterContainer.innerHTML = '';
+      for (const cat of categories) {
+        const btn = document.createElement('button');
+        btn.classList.add('category-chip');
+        if (cat === 'ALL') btn.classList.add('active');
+        btn.textContent = cat.toUpperCase();
+        btn.addEventListener('click', () => {
+          filterContainer.querySelectorAll('.category-chip').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          this.populateCatalog(cat === 'ALL' ? null : cat);
+        });
+        filterContainer.appendChild(btn);
+      }
+    }
+
+    this.populateCatalog(null);
+  }
+
+  populateCatalog(filterCategory = null) {
+    const catalogList = document.getElementById('catalog-list');
+    const drawer = document.getElementById('module-drawer');
+    if (!catalogList) return;
+
+    catalogList.innerHTML = '';
+    for (const [type, def] of Object.entries(MODULE_DEFINITIONS)) {
+      if (type === 'mixer') continue;
+      if (filterCategory && def.category.toLowerCase() !== filterCategory.toLowerCase()) continue;
+
+      const card = document.createElement('div');
+      card.classList.add('catalog-card');
+      card.innerHTML = `
+        <div class="card-header">
+          <span class="card-name">${def.name}</span>
+          <span class="card-badge">${def.category}</span>
+        </div>
+        <div class="card-desc">${def.desc}</div>
+        <div class="card-specs">Width: ${def.width}px &bull; Ins: ${def.inputs.length} &bull; Outs: ${def.outputs.length}</div>
+      `;
+      card.addEventListener('click', () => {
+        this.addModule(type);
+        drawer.classList.remove('open');
+      });
+      catalogList.appendChild(card);
+    }
+  }
+
+  initMidiDrawer() {
+    const drawer = document.getElementById('midi-drawer');
+    if (!drawer) return;
+    const toggleBtn = document.getElementById('midi-drawer-btn');
+    const closeBtn = document.getElementById('close-midi-drawer-btn');
+    const searchInput = document.getElementById('midi-search-input');
+    const searchBtn = document.getElementById('midi-search-submit-btn');
+    const chipsContainer = document.getElementById('midi-search-chips');
+    const listContainer = document.getElementById('midi-list-container');
+    const tabStarters = document.getElementById('midi-tab-starters');
+    const tabResults = document.getElementById('midi-tab-results');
+    const resultsCount = document.getElementById('midi-results-count');
+
+    let currentTab = 'starters';
+    let currentFilterType = 'all';
+    let searchResultsData = [];
+    let starterRiffsData = [];
+
+    const toggle = () => { drawer.classList.toggle('open'); };
+    if (toggleBtn) toggleBtn.addEventListener('click', toggle);
+    if (closeBtn) closeBtn.addEventListener('click', toggle);
+
+    // Single / Multi Filter Pills in Left Drawer
+    const filterPills = drawer.querySelectorAll('.midi-filter-pill');
+    filterPills.forEach(pill => {
+      pill.addEventListener('click', () => {
+        filterPills.forEach(p => p.classList.remove('active'));
+        pill.classList.add('active');
+        currentFilterType = pill.dataset.filter || 'all';
+        if (currentTab === 'starters') {
+          loadStarters();
+        } else {
+          doSearch(searchInput ? searchInput.value : '');
+        }
+      });
+    });
+
+    // Quick search tags including single-track riffs
+    const chips = ['1-TRK BASS', '303 RIFF', 'MOOG SUB', 'CYBERPUNK ARP', 'FUNK SLAP', 'TECHNO STABS', 'CHIPTUNE LEAD', 'DAFT PUNK', 'APHEX TWIN', 'BACH'];
+    if (chipsContainer) {
+      chipsContainer.innerHTML = '';
+      chips.forEach(c => {
+        const chip = document.createElement('button');
+        chip.classList.add('midi-chip');
+        chip.textContent = c;
+        chip.addEventListener('click', () => {
+          if (searchInput) {
+            searchInput.value = c.toLowerCase();
+            if (c.startsWith('1-TRK') || c.includes('RIFF') || c.includes('SUB') || c.includes('ARP')) {
+              filterPills.forEach(p => p.classList.toggle('active', p.dataset.filter === 'single'));
+              currentFilterType = 'single';
+            }
+            doSearch(c.toLowerCase());
+          }
+        });
+        chipsContainer.appendChild(chip);
+      });
+    }
+
+    const renderCards = (items, isStarter = false) => {
+      if (!listContainer) return;
+      listContainer.innerHTML = '';
+      if (!items || !items.length) {
+        listContainer.innerHTML = `
+          <div style="text-align:center; padding: 24px 12px; color:var(--omo-dim); font-size:10px;">
+            No MIDI files found matching "${currentFilterType}". Try selecting another filter or searching.
+          </div>
+        `;
+        return;
+      }
+
+      items.forEach(item => {
+        const card = document.createElement('div');
+        card.classList.add('midi-card');
+        card.draggable = true;
+
+        const isSingle = !!item.is_single_track;
+        const sourceBadge = isSingle
+          ? `<span class="midi-card-source single" title="Single Isolated 1-Track Riff">★ 1-TRK RIFF</span>`
+          : (item.tracks_count ? `<span class="midi-card-source multi" title="${item.tracks_count} Instrument Tracks">${item.tracks_count} TRKS</span>` : `<span class="midi-card-source">${isStarter ? 'Starter Song' : 'BitMidi'}</span>`);
+
+        card.innerHTML = `
+          <div class="midi-card-header">
+            <span class="midi-card-title" title="${item.title}">${item.title}</span>
+            ${sourceBadge}
+          </div>
+          <div class="midi-card-actions">
+            <span class="midi-card-drag-hint">&#x2731; Drag to Module</span>
+            <div style="display:flex; gap:4px;">
+              ${!isSingle ? `<button class="midi-card-load-btn iso-quick-btn" title="Load and isolate single bass/lead track" style="background:rgba(158,206,106,0.15); border-color:var(--omo-ok); color:var(--omo-ok);">1-TRK</button>` : ''}
+              <button class="midi-card-load-btn main-load-btn" title="Load into MIDI Module">LOAD</button>
+            </div>
+          </div>
+        `;
+
+        card.addEventListener('dragstart', (e) => {
+          const payload = JSON.stringify({
+            title: item.title,
+            download_url: item.download_url,
+            is_starter: isStarter,
+            is_single_track: isSingle,
+          });
+          e.dataTransfer.setData('application/json', payload);
+          e.dataTransfer.setData('text/plain', payload);
+          e.dataTransfer.effectAllowed = 'copy';
+        });
+
+        const loadBtn = card.querySelector('.main-load-btn');
+        const isoQuickBtn = card.querySelector('.iso-quick-btn');
+
+        const performLoad = async (autoIso = false) => {
+          const btn = autoIso ? isoQuickBtn : loadBtn;
+          if (btn) btn.textContent = '...';
+          let midiModState = this.modulesState.find(m => m.type === 'midi_player');
+          if (!midiModState) {
+            const modId = this.addModule('midi_player');
+            midiModState = this.modulesState.find(m => m.id === modId);
+          }
+          if (midiModState) {
+            const modEl = this.rack.querySelector(`.module-panel[data-id="${midiModState.id}"]`);
+            if (modEl && typeof modEl._loadMidiUrl === 'function') {
+              await modEl._loadMidiUrl(item.download_url, item.title, autoIso);
+              if (btn) {
+                btn.textContent = autoIso ? '1-TRK ✓' : 'LOADED';
+                setTimeout(() => { if (btn) btn.textContent = autoIso ? '1-TRK' : 'LOAD'; }, 1500);
+              }
+            }
+          }
+        };
+
+        if (loadBtn) {
+          loadBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            performLoad(false);
+          });
+        }
+        if (isoQuickBtn) {
+          isoQuickBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            performLoad(true);
+          });
+        }
+
+        listContainer.appendChild(card);
+      });
+    };
+
+    const loadStarters = async () => {
+      try {
+        const resp = await fetch(`/api/midi/starters?filter_type=${encodeURIComponent(currentFilterType)}`);
+        starterRiffsData = await resp.json();
+        if (currentTab === 'starters') {
+          renderCards(starterRiffsData, true);
+        }
+      } catch (err) {
+        console.error('Failed to load starters:', err);
+      }
+    };
+
+    const doSearch = async (q) => {
+      if (!q || !q.trim()) {
+        currentTab = 'starters';
+        tabStarters.classList.add('active');
+        tabResults.classList.remove('active');
+        loadStarters();
+        return;
+      }
+      currentTab = 'results';
+      tabStarters.classList.remove('active');
+      tabResults.classList.add('active');
+      listContainer.innerHTML = `
+        <div style="text-align:center; padding: 24px 12px; color:var(--omo-accent); font-size:10px;">
+          Searching 113,000+ MIDI archive (${currentFilterType})...
+        </div>
+      `;
+      try {
+        const resp = await fetch(`/api/midi/search?q=${encodeURIComponent(q.trim())}&filter_type=${encodeURIComponent(currentFilterType)}`);
+        if (!resp.ok) {
+          throw new Error(`HTTP ${resp.status} - ${resp.statusText}`);
+        }
+        const data = await resp.json();
+        searchResultsData = data.results || [];
+        if (resultsCount) resultsCount.textContent = searchResultsData.length;
+        renderCards(searchResultsData, false);
+      } catch (err) {
+        listContainer.innerHTML = `
+          <div style="color:var(--omo-err); padding:16px; font-size:10px; line-height:1.5;">
+            <strong>Search request failed:</strong><br>${err.message}<br><br>
+            <span style="color:var(--omo-dim);">Tip: If omomodular was running during the update, please restart the app or reload the window.</span>
+          </div>
+        `;
+      }
+    };
+
+    let searchDebounceTimer = null;
+    if (searchInput) {
+      searchInput.addEventListener('input', (e) => {
+        clearTimeout(searchDebounceTimer);
+        const val = e.target.value;
+        searchDebounceTimer = setTimeout(() => {
+          doSearch(val);
+        }, 350);
+      });
+      searchInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          clearTimeout(searchDebounceTimer);
+          doSearch(searchInput.value);
+        }
+      });
+    }
+
+    if (searchBtn && searchInput) {
+      searchBtn.addEventListener('click', () => {
+        clearTimeout(searchDebounceTimer);
+        doSearch(searchInput.value);
+      });
+    }
+
+    if (tabStarters) {
+      tabStarters.addEventListener('click', () => {
+        currentTab = 'starters';
+        tabStarters.classList.add('active');
+        tabResults.classList.remove('active');
+        loadStarters();
+      });
+    }
+
+    if (tabResults) {
+      tabResults.addEventListener('click', () => {
+        currentTab = 'results';
+        tabResults.classList.add('active');
+        tabStarters.classList.remove('active');
+        renderCards(searchResultsData, false);
+      });
+    }
+
+    loadStarters();
+  }
+
+  initShortcuts() {
+    window.addEventListener('keydown', (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+
+      if (e.code === 'Space') {
+        e.preventDefault();
+        const isMuted = this.dsp.toggleMute();
+        const muteBtn = document.getElementById('mute-btn');
+        if (muteBtn) {
+          muteBtn.classList.toggle('muted', isMuted);
+          muteBtn.textContent = isMuted ? '[SPACE] MUTED' : '[SPACE] RUN';
+        }
+      } else if (e.code === 'KeyS') {
+        e.preventDefault();
+        this.flashSyncBtn();
+        this.dsp.syncDownbeat();
+      } else if (e.code === 'KeyM') {
+        e.preventDefault();
+        const midiDrawer = document.getElementById('midi-drawer');
+        if (midiDrawer) midiDrawer.classList.toggle('open');
+      } else if (e.code === 'KeyC') {
+        e.preventDefault();
+        const ghost = this.cables.toggleGhost();
+        const ghostBtn = document.getElementById('ghost-btn');
+        if (ghostBtn) {
+          ghostBtn.classList.toggle('active', ghost);
+        }
+      } else if (e.code === 'KeyF') {
+        e.preventDefault();
+        this.toggleTvRackMode();
+      } else if (e.code === 'Tab' || e.code === 'KeyD') {
+        e.preventDefault();
+        const drawer = document.getElementById('module-drawer');
+        if (drawer) drawer.classList.toggle('open');
+      } else if (e.code === 'KeyR') {
+        // Randomize selected module
+        if (this.selectedModuleEl) {
+          const modId = this.selectedModuleEl.dataset.id;
+          const modType = this.selectedModuleEl.dataset.type;
+          const def = MODULE_DEFINITIONS[modType];
+          const dspMod = this.dsp.modules.get(modId);
+          const stateMod = this.modulesState.find(m => m.id === modId);
+
+          if (def && dspMod && stateMod) {
+            for (const c of def.controls) {
+              if (c.type === 'knob') {
+                const rand = c.min + Math.random() * (c.max - c.min);
+                const rounded = Math.round(rand / (c.step || 0.01)) * (c.step || 0.01);
+                stateMod.params[c.id] = rounded;
+                dspMod.setParam(c.id, rounded);
+                const knobEl = this.selectedModuleEl.querySelector(`.knob-wrap[data-param="${c.id}"] .knob`);
+                const valSpan = this.selectedModuleEl.querySelector(`.knob-wrap[data-param="${c.id}"] .knob-value`);
+                if (knobEl && valSpan) {
+                  knobEl.dataset.val = rounded;
+                  const pct = (rounded - c.min) / (c.max - c.min);
+                  knobEl.querySelector('.knob-dial').style.transform = `rotate(${-140 + pct * 280}deg)`;
+                  valSpan.textContent = this.formatVal(rounded, c.unit || '');
+                }
+              }
+            }
+            if (window.onPatchModified) window.onPatchModified();
+          }
+        }
+      }
+    });
+  }
+
+  toggleTvRackMode() {
+    const isTvMode = document.body.classList.toggle('tv-rack-mode');
+    const btn = document.getElementById('tv-rack-btn');
+    if (btn) btn.classList.toggle('active', isTvMode);
+
+    if (!document.fullscreenElement) {
+      if (document.documentElement.requestFullscreen) {
+        document.documentElement.requestFullscreen().catch(() => {});
+      }
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen().catch(() => {});
+      }
+    }
+    setTimeout(() => {
+      if (this.cables) this.cables.render();
+    }, 60);
+  }
+
+  flashSyncBtn() {
+    const btn = document.getElementById('sync-btn');
+    if (!btn) return;
+    btn.classList.add('synced');
+    setTimeout(() => {
+      btn.classList.remove('synced');
+    }, 250);
+  }
+
+  startOscilloscope() {
+    const canvas = document.getElementById('scope-canvas');
+    if (!canvas) {
+      setTimeout(() => this.startOscilloscope(), 200);
+      return;
+    }
+    const ctx = canvas.getContext('2d');
+    const bufferLength = 1024;
+    const dataArray = new Uint8Array(bufferLength);
+
+    const draw = () => {
+      requestAnimationFrame(draw);
+      if (!this.dsp.analyser) return;
+
+      this.dsp.analyser.getByteTimeDomainData(dataArray);
+
+      ctx.fillStyle = 'rgba(18, 19, 26, 0.4)';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      ctx.lineWidth = 1.8;
+      ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--omo-cyan').trim() || '#7dcfff';
+      ctx.beginPath();
+
+      const sliceWidth = canvas.width / bufferLength;
+      let x = 0;
+
+      for (let i = 0; i < bufferLength; i++) {
+        const v = dataArray[i] / 128.0;
+        const y = (v * canvas.height) / 2;
+        if (i === 0) {
+          ctx.moveTo(x, y);
+        } else {
+          ctx.lineTo(x, y);
+        }
+        x += sliceWidth;
+      }
+      ctx.stroke();
+    };
+
+    draw();
+  }
+}
+
+window.ModularRackUI = ModularRackUI;

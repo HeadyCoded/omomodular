@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=OmoModular
+GenericName=Eurorack Drone Synthesizer
+Comment=Minimalist Eurorack modular synthesizer and ambient drone workstation for Omarchy
+Exec=omomodular
+Icon=audio-card
+Terminal=false
+Categories=AudioVideo;Audio;Music;
+Keywords=synth;synthesizer;modular;eurorack;drone;ambient;audio;music;omomodular;
+StartupWMClass=omomodular

@@ -2,10 +2,34 @@
    ~/.config/omomodular/theme.css from omarchy-omomodular-theme. */
 :root {
   color-scheme: dark;
-  --omo-bg:#16161e;  --omo-surface:#1a1b26;  --omo-surface-2:#21232f;
-  --omo-border:#3b3f51;  --omo-fg:#c0caf5;  --omo-dim:#565f89;
-  --omo-accent:#7aa2f7;  --omo-ok:#9ece6a;  --omo-warn:#e0af68;
-  --omo-err:#f7768e;  --omo-info:#7dcfff;  --omo-blue:#7aa2f7;
-  --omo-cyan:#7dcfff;  --omo-green:#9ece6a;  --omo-magenta:#bb9af7;
-  --omo-orange:#ff9e64;  --omo-yellow:#e0af68;
+  --omo-bg:#16161e;
+  --omo-surface:#1a1b26;
+  --omo-surface-2:#21232f;
+  --omo-border:#3b3f51;
+  --omo-fg:#c0caf5;
+  --omo-dim:#565f89;
+  --omo-accent:#7aa2f7;
+  --omo-ok:#9ece6a;
+  --omo-warn:#e0af68;
+  --omo-err:#f7768e;
+  --omo-info:#7dcfff;
+  --omo-blue:#7aa2f7;
+  --omo-cyan:#7dcfff;
+  --omo-green:#9ece6a;
+  --omo-magenta:#bb9af7;
+  --omo-orange:#ff9e64;
+  --omo-yellow:#e0af68;
+
+  /* Eurorack hardware design tokens */
+  --omo-rail-bg: #12131a;
+  --omo-rail-edge: #252837;
+  --omo-screw-fill: #343746;
+  --omo-panel-bg: #1a1b26;
+  --omo-panel-border: #282a36;
+  --omo-panel-header: #21232f;
+  --omo-jack-outer: #383b4c;
+  --omo-jack-inner: #0e0f14;
+  --omo-knob-body: #24283b;
+  --omo-knob-track: #15161e;
+  --omo-knob-indicator: #7aa2f7;
 }

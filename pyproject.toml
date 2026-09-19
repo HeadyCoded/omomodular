@@ -4,17 +4,25 @@ build-backend = "hatchling.build"
 
 [project]
 name = "omomodular"
-version = "0.0.1"
-description = "TODO"
+version = "0.6.1"
+description = "Minimalist Omarchy-themed Eurorack modular synthesizer and ambient drone workstation"
 readme = "README.md"
 requires-python = ">=3.12"
 license = { text = "MIT" }
 authors = [{ name = "xn0xinx" }]
 
-dependencies = []
+dependencies = [
+    "fastapi>=0.110",
+    "uvicorn>=0.29",
+    "websockets>=12",
+]
 
 [project.optional-dependencies]
-dev = ["pytest>=8"]
+dev = [
+    "pytest>=8",
+    "httpx>=0.27",
+    "pytest-asyncio>=0.23",
+]
 
 [project.scripts]
 omomodular = "omomodular.__main__:main"
@@ -27,6 +35,7 @@ packages = ["omomodular"]
 
 [tool.hatch.build.targets.wheel.force-include]
 "omomodular/web" = "omomodular/web"
+"omomodular/midi" = "omomodular/midi"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

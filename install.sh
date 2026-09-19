@@ -24,8 +24,10 @@ LAUNCH
 chmod +x "$BIN/omomodular"
 ln -sf "$REPO/scripts/omarchy-omomodular-theme" "$BIN/omarchy-omomodular-theme"
 
-mkdir -p "$HOOKDIR"
+mkdir -p "$HOOKDIR" "$HOME/.local/share/applications"
 install -m 0755 "$REPO/scripts/omomodular-theme.hook" "$HOOKDIR/omomodular-theme.hook"
 "$BIN/omarchy-omomodular-theme" 2>/dev/null || echo "(theme.css will use the bundled fallback until an omarchy theme set)"
 [ -f "$CONFDIR/config.toml" ] || { [ -f "$REPO/config.example.toml" ] && install -m 0600 "$REPO/config.example.toml" "$CONFDIR/config.toml"; }
+[ -f "$REPO/omomodular.desktop" ] && install -m 0644 "$REPO/omomodular.desktop" "$HOME/.local/share/applications/omomodular.desktop"
+command -v update-desktop-database >/dev/null 2>&1 && update-desktop-database "$HOME/.local/share/applications" 2>/dev/null || true
 echo "omomodular installed."

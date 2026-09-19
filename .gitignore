@@ -1,10 +1,14 @@
 .venv/
 dist/
 build/
+*.egg-info/
 __pycache__/
 *.pyc
+*.py[cod]
 .pytest_cache/
 *.db
 *.db-*
 config.toml
 *-auth.json
+omomodular/midi/downloads/
+ui_*.png

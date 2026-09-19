@@ -1,9 +1,101 @@
-"""Entry point for omomodular."""
+"""OmoModular entry point: launches the FastAPI server and Chromium app window."""
 from __future__ import annotations
+
+import argparse
+import json
+import sys
+import urllib.request
+from pathlib import Path
+
+import uvicorn
+
+from . import __version__, util
+from .config import load as load_config
+from .server import create_app
+
+_BROWSERS = (
+    "chromium",
+    "chromium-browser",
+    "google-chrome-stable",
+    "google-chrome",
+    "brave",
+    "brave-browser",
+)
+_PROFILE_DIR = Path.home() / ".local/share/omomodular/browser"
+
+
+def _open_ui(url: str, open_browser: bool = True) -> None:
+    """Open OmoModular inside a dedicated lightweight Chromium app window."""
+    if not open_browser:
+        return
+    binary = util.which(*_BROWSERS)
+    if binary and any(tag in Path(binary).name for tag in ("chrom", "brave")):
+        _PROFILE_DIR.mkdir(parents=True, exist_ok=True)
+        util.spawn_detached([
+            binary,
+            f"--app={url}",
+            "--class=omomodular",
+            f"--user-data-dir={_PROFILE_DIR}",
+            "--no-first-run",
+            "--no-default-browser-check",
+            "--autoplay-policy=no-user-gesture-required",
+        ])
+        return
+    if binary:
+        util.spawn_detached([binary, url])
+        return
+    opener = util.which("xdg-open")
+    if opener:
+        util.spawn_detached([opener, url])
+    else:
+        print(f"omomodular: open {url} in your browser", file=sys.stderr)
+
+
+def _running_instance(host: str, port: int) -> bool:
+    """Check if OmoModular is already active on the target port."""
+    if not util.port_open(host, port, 0.4):
+        return False
+    url = f"http://{host}:{port}/api/health"
+    try:
+        with urllib.request.urlopen(url, timeout=1.5) as resp:  # noqa: S310 - loopback
+            data = json.load(resp)
+            return data.get("app") == "OmoModular"
+    except (OSError, ValueError):
+        return False
 
 
 def main() -> None:
-    print("omomodular: nothing here yet")
+    parser = argparse.ArgumentParser(
+        description="OmoModular - Minimalist Eurorack ambient synthesizer for Omarchy."
+    )
+    parser.add_argument("-p", "--port", type=int, default=8796, help="HTTP port (default: 8796)")
+    parser.add_argument("--host", type=str, default="127.0.0.1", help="Host to bind (default: 127.0.0.1)")
+    parser.add_argument("--no-open", action="store_true", help="Do not open browser window")
+    parser.add_argument("-v", "--version", action="version", version=f"%(prog)s {__version__}")
+
+    args = parser.parse_args()
+    cfg = load_config()
+    cfg.server.port = args.port
+    cfg.server.host = args.host
+    cfg.server.open_app = not args.no_open
+
+    url = f"http://{cfg.server.host}:{cfg.server.port}"
+
+    if _running_instance(cfg.server.host, cfg.server.port):
+        print(f"omomodular: already running at {url}, bringing window to front...")
+        _open_ui(url, cfg.server.open_app)
+        sys.exit(0)
+
+    # Launch browser window right before uvicorn starts
+    _open_ui(url, cfg.server.open_app)
+
+    app = create_app(cfg)
+    uvicorn.run(
+        app,
+        host=cfg.server.host,
+        port=cfg.server.port,
+        log_level="warning",
+    )
 
 
 if __name__ == "__main__":

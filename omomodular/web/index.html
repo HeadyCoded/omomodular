@@ -1,18 +1,1622 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<title>omomodular</title>
-<link rel="stylesheet" href="theme.css">
-<style>
-  body { margin:0; font-family:"JetBrainsMono Nerd Font",monospace;
-         background:var(--omo-bg); color:var(--omo-fg); }
-</style>
+  <meta charset="utf-8">
+  <title>OmoModular - Eurorack Drone Synthesizer</title>
+  <link id="theme-sheet" rel="stylesheet" href="theme.css">
+  <style>
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      font-family: "JetBrainsMono Nerd Font", "JetBrains Mono", monospace;
+      background: var(--omo-bg);
+      color: var(--omo-fg);
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ---------------- Top Header Bar ---------------- */
+    #top-bar {
+      height: 48px;
+      background: var(--omo-surface);
+      border-bottom: 1px solid var(--omo-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      z-index: 100;
+      gap: 12px;
+    }
+
+    .brand-section {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .ascii-badge {
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      color: var(--omo-accent);
+      background: var(--omo-surface-2);
+      padding: 4px 10px;
+      border-radius: 4px;
+      border: 1px solid var(--omo-border);
+      font-size: 13px;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--omo-ok);
+      box-shadow: 0 0 6px var(--omo-ok);
+      animation: pulse 2.5s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 0.6; }
+      50% { opacity: 1.0; }
+    }
+
+    .controls-center {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .header-btn, .header-select {
+      background: var(--omo-surface-2);
+      color: var(--omo-fg);
+      border: 1px solid var(--omo-border);
+      padding: 5px 12px;
+      border-radius: 4px;
+      font-family: inherit;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      outline: none;
+      transition: all 0.15s ease;
+    }
+
+    .header-btn:hover, .header-select:hover {
+      border-color: var(--omo-accent);
+      color: var(--omo-accent);
+    }
+
+    .header-btn.active {
+      background: var(--omo-accent);
+      color: var(--omo-bg);
+      border-color: var(--omo-accent);
+    }
+
+    .header-btn.sync-btn {
+      color: var(--omo-accent);
+      border-color: var(--omo-accent);
+      font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+
+    .header-btn.sync-btn.synced {
+      background: var(--omo-accent) !important;
+      color: var(--omo-bg) !important;
+      box-shadow: 0 0 14px var(--omo-accent);
+      transform: scale(1.06);
+    }
+
+    .header-btn.mute-btn {
+      color: var(--omo-ok);
+      border-color: var(--omo-ok);
+    }
+
+    .header-btn.mute-btn.muted {
+      color: var(--omo-err);
+      border-color: var(--omo-err);
+      background: rgba(247, 118, 142, 0.15);
+    }
+
+    .master-vol-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      color: var(--omo-dim);
+    }
+
+    .master-slider {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 80px;
+      height: 4px;
+      border-radius: 2px;
+      background: var(--omo-border);
+      outline: none;
+    }
+
+    .master-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--omo-accent);
+      cursor: pointer;
+      box-shadow: 0 0 4px var(--omo-accent);
+    }
+
+    /* ---------------- Eurorack Multi-Row Viewport ---------------- */
+    #rack-container {
+      flex: 1;
+      position: relative;
+      overflow: auto;
+      background: var(--omo-rail-bg);
+      display: flex;
+      flex-direction: column;
+    }
+
+    #rack {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      padding: 14px 16px 16px 16px;
+      min-width: max-content;
+      position: relative;
+    }
+
+    .rack-row {
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      background: #15161f;
+      border: 1px solid var(--omo-border);
+      border-radius: 6px;
+      box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.6), 0 4px 12px rgba(0, 0, 0, 0.3);
+      min-width: max-content;
+      transition: border-color 0.2s ease;
+    }
+
+    .rack-row.active-row {
+      border-color: var(--omo-accent);
+      box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.6), 0 0 10px rgba(122, 162, 247, 0.25);
+    }
+
+    .rack-rail {
+      height: 22px;
+      background: linear-gradient(180deg, #4b4f63 0%, #292c3a 35%, #181a24 70%, #35394d 100%);
+      border-top: 1px solid rgba(255, 255, 255, 0.2);
+      border-bottom: 2px solid #08090d;
+      box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.12), inset 0 -1px 3px rgba(0, 0, 0, 0.9);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 14px;
+      z-index: 10;
+      position: relative;
+    }
+
+    .top-rail {
+      border-top-left-radius: 5px;
+      border-top-right-radius: 5px;
+    }
+
+    .bottom-rail {
+      border-bottom-left-radius: 5px;
+      border-bottom-right-radius: 5px;
+    }
+
+    .rail-screws-strip {
+      display: flex;
+      gap: 20px;
+      align-items: center;
+      flex: 1;
+      overflow: hidden;
+      padding-top: 1px;
+    }
+
+    .rail-screw {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 35%, #464a5c 0%, #1c1d26 100%);
+      border: 1px solid #101117;
+      box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.25), 0 1px 2px rgba(0, 0, 0, 0.9);
+      flex-shrink: 0;
+      position: relative;
+    }
+
+    .rail-screw::after {
+      content: '';
+      position: absolute;
+      top: 3px;
+      left: 1px;
+      right: 1px;
+      height: 1px;
+      background: #08090d;
+    }
+
+    .row-tag {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      z-index: 15;
+    }
+
+    .row-num {
+      font-size: 10px;
+      font-weight: 800;
+      color: var(--omo-accent);
+      background: var(--omo-surface);
+      padding: 2px 8px;
+      border-radius: 3px;
+      border: 1px solid var(--omo-border);
+      letter-spacing: 0.5px;
+    }
+
+    .remove-row-btn {
+      background: var(--omo-surface);
+      border: 1px solid var(--omo-border);
+      color: var(--omo-dim);
+      font-size: 13px;
+      cursor: pointer;
+      border-radius: 3px;
+      padding: 1px 6px;
+      line-height: 1;
+    }
+
+    .remove-row-btn:hover {
+      color: var(--omo-err);
+      border-color: var(--omo-err);
+    }
+
+    .rack-modules-slot {
+      display: flex;
+      align-items: stretch;
+      padding: 8px 12px;
+      gap: 12px;
+      min-width: 800px;
+      min-height: 380px;
+      background: rgba(0, 0, 0, 0.2);
+    }
+
+    .add-row-bar {
+      padding: 10px 16px 40px 16px;
+      display: flex;
+      justify-content: center;
+      z-index: 20;
+    }
+
+    .add-row-banner-btn {
+      background: var(--omo-surface);
+      color: var(--omo-accent);
+      border: 1px dashed var(--omo-accent);
+      border-radius: 6px;
+      padding: 10px 24px;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    }
+
+    .add-row-banner-btn:hover {
+      background: var(--omo-accent);
+      color: var(--omo-bg);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 18px rgba(122, 162, 247, 0.35);
+    }
+
+    /* SVG Cable Overlay */
+    #cables-svg {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 50;
+      transition: opacity 0.15s ease;
+    }
+
+    #cables-svg.ghost {
+      opacity: 0.18;
+    }
+
+    .cable-group {
+      pointer-events: stroke;
+      cursor: pointer;
+    }
+
+    .cable-group:hover .cable-core {
+      stroke-width: 6.5px;
+      filter: drop-shadow(0 0 6px currentColor);
+    }
+
+    /* ---------------- Module Faceplates ---------------- */
+    .module-panel {
+      background: var(--omo-panel-bg);
+      border: 1px solid var(--omo-border);
+      border-radius: 5px;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+      z-index: 20;
+    }
+
+    .screw {
+      position: absolute;
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--omo-screw-fill);
+      border: 1px solid #1a1b26;
+      box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.1);
+      z-index: 5;
+    }
+    .screw-tl { top: 5px; left: 6px; }
+    .screw-tr { top: 5px; right: 6px; }
+    .screw-bl { bottom: 5px; left: 6px; }
+    .screw-br { bottom: 5px; right: 6px; }
+
+    .module-header {
+      height: 32px;
+      background: var(--omo-panel-header);
+      border-bottom: 1px solid var(--omo-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      border-top-left-radius: 5px;
+      border-top-right-radius: 5px;
+    }
+
+    .module-title {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      color: var(--omo-fg);
+    }
+
+    .mod-remove-btn {
+      background: none;
+      border: none;
+      color: var(--omo-dim);
+      font-size: 16px;
+      cursor: pointer;
+      line-height: 1;
+      padding: 2px 6px;
+    }
+
+    .mod-remove-btn:hover {
+      color: var(--omo-err);
+    }
+
+    .module-controls {
+      flex: 1;
+      padding: 12px 10px;
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px 8px;
+      align-content: start;
+    }
+
+    .control-label {
+      font-size: 9px;
+      font-weight: 700;
+      color: var(--omo-dim);
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      text-align: center;
+    }
+
+    .knob-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .knob {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: var(--omo-knob-track);
+      border: 2px solid var(--omo-border);
+      position: relative;
+      cursor: ns-resize;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+    }
+
+    .knob:hover {
+      border-color: var(--omo-accent);
+    }
+
+    .knob-dial {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 30% 30%, #32364a 0%, #1a1b26 100%);
+      position: relative;
+      box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.15);
+      transform: rotate(-140deg);
+      transition: transform 0.05s ease-out;
+    }
+
+    .knob-pointer {
+      width: 2px;
+      height: 10px;
+      background: var(--omo-accent);
+      position: absolute;
+      top: 2px;
+      left: 15px;
+      border-radius: 1px;
+      box-shadow: 0 0 3px var(--omo-accent);
+    }
+
+    .knob-value {
+      font-size: 9px;
+      color: var(--omo-fg);
+      font-weight: 600;
+    }
+
+    .select-wrap {
+      grid-column: span 2;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .mod-select {
+      background: var(--omo-surface-2);
+      color: var(--omo-fg);
+      border: 1px solid var(--omo-border);
+      border-radius: 3px;
+      padding: 4px 6px;
+      font-family: inherit;
+      font-size: 10px;
+      outline: none;
+    }
+
+    /* Oscilloscope container */
+    .scope-container {
+      padding: 8px 12px 0 12px;
+      display: flex;
+      justify-content: center;
+    }
+
+    #scope-canvas {
+      background: #0e0f14;
+      border: 1px solid var(--omo-border);
+      border-radius: 4px;
+      box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.8);
+      width: 230px;
+      height: 60px;
+    }
+
+    /* ---------------- Jacks Strip ---------------- */
+    .jacks-strip {
+      border-top: 1px solid var(--omo-border);
+      background: rgba(0, 0, 0, 0.2);
+      padding: 10px 8px;
+      display: flex;
+      justify-content: space-around;
+      gap: 8px;
+      border-bottom-left-radius: 5px;
+      border-bottom-right-radius: 5px;
+    }
+
+    .jacks-col {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .jacks-heading {
+      font-size: 9px;
+      font-weight: 800;
+      color: var(--omo-dim);
+    }
+
+    .jack-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+    }
+
+    .jack {
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: #252837;
+      border: 2px solid #4e546c;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: crosshair;
+      position: relative;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+      transition: all 0.15s ease;
+    }
+
+    .jack:hover {
+      border-color: var(--omo-accent);
+      transform: scale(1.08);
+    }
+
+    .jack-hole {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #08090d;
+      box-shadow: inset 0 2px 3px rgba(0, 0, 0, 0.9);
+    }
+
+    .jack.connected {
+      border-color: var(--omo-ok);
+      box-shadow: 0 0 6px var(--omo-ok);
+    }
+
+    .jack-label {
+      font-size: 8px;
+      color: var(--omo-dim);
+      font-weight: 700;
+    }
+
+    /* ---------------- Module Catalog Drawer ---------------- */
+    #module-drawer {
+      position: fixed;
+      top: 48px;
+      right: -390px;
+      width: 370px;
+      height: calc(100vh - 48px);
+      background: var(--omo-surface);
+      border-left: 1px solid var(--omo-border);
+      box-shadow: -6px 0 24px rgba(0, 0, 0, 0.6);
+      transition: right 0.25s cubic-bezier(0.1, 0.9, 0.2, 1);
+      z-index: 150;
+      display: flex;
+      flex-direction: column;
+    }
+
+    #module-drawer.open {
+      right: 0;
+    }
+
+    .drawer-header {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--omo-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .drawer-title {
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      color: var(--omo-accent);
+    }
+
+    .drawer-filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--omo-border);
+      background: var(--omo-surface-2);
+    }
+
+    .category-chip {
+      background: var(--omo-surface);
+      color: var(--omo-dim);
+      border: 1px solid var(--omo-border);
+      border-radius: 12px;
+      padding: 3px 8px;
+      font-size: 9px;
+      font-weight: 700;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .category-chip:hover, .category-chip.active {
+      background: var(--omo-accent);
+      color: var(--omo-bg);
+      border-color: var(--omo-accent);
+    }
+
+    #catalog-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .catalog-card {
+      background: var(--omo-surface-2);
+      border: 1px solid var(--omo-border);
+      border-radius: 5px;
+      padding: 12px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .catalog-card:hover {
+      border-color: var(--omo-accent);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+
+    .card-name {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--omo-fg);
+    }
+
+    .card-badge {
+      font-size: 9px;
+      background: var(--omo-panel-border);
+      color: var(--omo-accent);
+      padding: 2px 6px;
+      border-radius: 3px;
+    }
+
+    .card-desc {
+      font-size: 10px;
+      color: var(--omo-dim);
+      line-height: 1.4;
+      margin-bottom: 6px;
+    }
+
+    .card-specs {
+      font-size: 9px;
+      color: var(--omo-dim);
+    }
+
+    /* ---------------- Left MIDI Archive Drawer ---------------- */
+    #midi-drawer {
+      position: fixed;
+      top: 48px;
+      left: -400px;
+      width: 380px;
+      height: calc(100vh - 48px);
+      background: var(--omo-surface);
+      border-right: 1px solid var(--omo-border);
+      box-shadow: 6px 0 24px rgba(0, 0, 0, 0.6);
+      transition: left 0.25s cubic-bezier(0.1, 0.9, 0.2, 1);
+      z-index: 150;
+      display: flex;
+      flex-direction: column;
+    }
+
+    #midi-drawer.open {
+      left: 0;
+    }
+
+    .midi-archive-badge {
+      font-size: 8px;
+      font-weight: 700;
+      color: var(--omo-cyan);
+      background: rgba(125, 207, 255, 0.12);
+      border: 1px solid var(--omo-cyan);
+      border-radius: 3px;
+      padding: 2px 5px;
+      letter-spacing: 0.5px;
+    }
+
+    .midi-search-box {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--omo-border);
+      background: var(--omo-surface-2);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .midi-search-row {
+      display: flex;
+      gap: 6px;
+    }
+
+    .midi-input {
+      flex: 1;
+      background: var(--omo-bg);
+      border: 1px solid var(--omo-border);
+      color: var(--omo-fg);
+      font-family: inherit;
+      font-size: 11px;
+      padding: 6px 10px;
+      border-radius: 4px;
+      outline: none;
+    }
+
+    .midi-input:focus {
+      border-color: var(--omo-accent);
+      box-shadow: 0 0 6px rgba(122, 162, 247, 0.3);
+    }
+
+    .midi-chips-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      max-height: 56px;
+      overflow-y: auto;
+    }
+
+    .midi-chip {
+      background: var(--omo-surface);
+      color: var(--omo-fg);
+      border: 1px solid var(--omo-border);
+      border-radius: 10px;
+      padding: 2px 7px;
+      font-size: 8px;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .midi-chip:hover {
+      border-color: var(--omo-accent);
+      color: var(--omo-accent);
+      background: var(--omo-surface-2);
+    }
+
+    .midi-drawer-tabs {
+      display: flex;
+      border-bottom: 1px solid var(--omo-border);
+      background: var(--omo-surface);
+    }
+
+    .midi-tab-btn {
+      flex: 1;
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: var(--omo-dim);
+      font-family: inherit;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 8px;
+      cursor: pointer;
+      text-align: center;
+    }
+
+    .midi-tab-btn.active {
+      color: var(--omo-accent);
+      border-bottom-color: var(--omo-accent);
+      background: var(--omo-surface-2);
+    }
+
+    .midi-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .midi-card {
+      background: var(--omo-surface-2);
+      border: 1px solid var(--omo-border);
+      border-radius: 5px;
+      padding: 8px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      cursor: grab;
+      transition: all 0.15s ease;
+    }
+
+    .midi-card:hover {
+      border-color: var(--omo-accent);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+      transform: translateY(-1px);
+    }
+
+    .midi-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+    }
+
+    .midi-card-title {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--omo-fg);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      flex: 1;
+    }
+
+    .midi-card-source {
+      font-size: 8px;
+      color: var(--omo-ok);
+      border: 1px solid rgba(158, 206, 106, 0.3);
+      padding: 1px 4px;
+      border-radius: 3px;
+    }
+
+    .midi-card-actions {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .midi-card-drag-hint {
+      font-size: 8px;
+      color: var(--omo-dim);
+      display: flex;
+      align-items: center;
+      gap: 3px;
+    }
+
+    .midi-card-load-btn {
+      font-size: 9px;
+      font-weight: 700;
+      padding: 3px 8px;
+      background: var(--omo-surface);
+      color: var(--omo-accent);
+      border: 1px solid var(--omo-accent);
+      border-radius: 3px;
+      cursor: pointer;
+      font-family: inherit;
+    }
+
+    .midi-card-load-btn:hover {
+      background: var(--omo-accent);
+      color: var(--omo-surface);
+    }
+
+    /* ---------------- MIDI Player Module Faceplate ---------------- */
+    .midi-player-faceplate {
+      padding: 8px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      background: rgba(18, 19, 26, 0.5);
+      border-bottom: 1px solid var(--omo-border);
+    }
+
+    .midi-file-zone {
+      border: 1px dashed var(--omo-border);
+      border-radius: 4px;
+      padding: 6px 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      background: var(--omo-surface-2);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .midi-file-zone.drag-over {
+      border-color: var(--omo-ok);
+      background: rgba(158, 206, 106, 0.1);
+      box-shadow: 0 0 10px rgba(158, 206, 106, 0.3);
+    }
+
+    .midi-file-info {
+      flex: 1;
+      overflow: hidden;
+    }
+
+    .midi-file-name {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--omo-cyan);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .midi-file-sub {
+      font-size: 8px;
+      color: var(--omo-dim);
+    }
+
+    .midi-browse-btn {
+      font-size: 8px;
+      font-weight: 700;
+      background: var(--omo-surface);
+      color: var(--omo-fg);
+      border: 1px solid var(--omo-border);
+      border-radius: 3px;
+      padding: 3px 6px;
+      cursor: pointer;
+    }
+
+    .midi-progress-bar-wrap {
+      height: 4px;
+      background: var(--omo-surface);
+      border-radius: 2px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .midi-progress-bar {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--omo-accent), var(--omo-cyan));
+      transition: width 0.05s linear;
+    }
+
+    .midi-transport-row {
+      display: flex;
+      gap: 4px;
+    }
+
+    .midi-transport-btn {
+      flex: 1;
+      font-size: 8px;
+      font-weight: 700;
+      font-family: inherit;
+      background: var(--omo-surface-2);
+      border: 1px solid var(--omo-border);
+      color: var(--omo-fg);
+      padding: 4px 4px;
+      border-radius: 3px;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.15s ease;
+    }
+
+    .midi-transport-btn:hover {
+      border-color: var(--omo-accent);
+      color: var(--omo-accent);
+    }
+
+    .midi-transport-btn.active {
+      background: rgba(122, 162, 247, 0.15);
+      border-color: var(--omo-accent);
+      color: var(--omo-accent);
+    }
+
+    .midi-tracks-container {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      max-height: 110px;
+      overflow-y: auto;
+      border: 1px solid var(--omo-border);
+      border-radius: 4px;
+      background: var(--omo-bg);
+      padding: 4px;
+    }
+
+    .midi-track-row {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 2px 4px;
+      background: var(--omo-surface);
+      border-radius: 3px;
+      font-size: 9px;
+      border: 1px solid transparent;
+      transition: all 0.1s ease;
+    }
+
+    .midi-track-row.playing {
+      border-color: var(--omo-ok);
+    }
+
+    .midi-track-led {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #252837;
+      transition: all 0.08s ease;
+      flex-shrink: 0;
+    }
+
+    .midi-track-led.active {
+      background: var(--omo-ok);
+      box-shadow: 0 0 6px var(--omo-ok);
+    }
+
+    .midi-track-name {
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: var(--omo-fg);
+      font-weight: 600;
+    }
+
+    .midi-track-count {
+      font-size: 8px;
+      color: var(--omo-dim);
+    }
+
+    .midi-track-btn {
+      font-size: 8px;
+      font-weight: 700;
+      font-family: inherit;
+      width: 17px;
+      height: 17px;
+      border-radius: 2px;
+      border: 1px solid var(--omo-border);
+      background: var(--omo-surface-2);
+      color: var(--omo-dim);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      flex-shrink: 0;
+    }
+
+    .midi-track-btn.mute-btn.active {
+      background: var(--omo-err);
+      color: #fff;
+      border-color: var(--omo-err);
+      box-shadow: 0 0 5px var(--omo-err);
+    }
+
+    .midi-track-btn.solo-btn.active {
+      background: var(--omo-warn);
+      color: #12131a;
+      border-color: var(--omo-warn);
+      box-shadow: 0 0 5px var(--omo-warn);
+    }
+
+    /* Single-Track Isolate button */
+    .midi-track-btn.iso-btn {
+      width: 36px;
+      font-size: 7px;
+      background: rgba(125, 207, 255, 0.1);
+      border-color: var(--omo-cyan);
+      color: var(--omo-cyan);
+      letter-spacing: 0.3px;
+    }
+    .midi-track-btn.iso-btn:hover {
+      background: var(--omo-cyan);
+      color: var(--omo-bg);
+    }
+
+    /* Single / Multi Filter Pills in Left Drawer */
+    .midi-filter-pills {
+      display: flex;
+      gap: 4px;
+      padding: 6px 12px;
+      background: var(--omo-surface-2);
+      border-bottom: 1px solid var(--omo-border);
+    }
+    .midi-filter-pill {
+      flex: 1;
+      background: var(--omo-surface);
+      color: var(--omo-dim);
+      border: 1px solid var(--omo-border);
+      border-radius: 4px;
+      font-size: 8px;
+      font-weight: 700;
+      font-family: inherit;
+      padding: 4px 6px;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.15s ease;
+    }
+    .midi-filter-pill:hover {
+      border-color: var(--omo-accent);
+      color: var(--omo-fg);
+    }
+    .midi-filter-pill.active {
+      background: rgba(122, 162, 247, 0.2);
+      border-color: var(--omo-accent);
+      color: var(--omo-accent);
+    }
+    .midi-filter-pill.single-pill.active {
+      background: rgba(158, 206, 106, 0.2);
+      border-color: var(--omo-ok);
+      color: var(--omo-ok);
+    }
+
+    .midi-card-source.single {
+      background: rgba(158, 206, 106, 0.15);
+      border-color: var(--omo-ok);
+      color: var(--omo-ok);
+    }
+    .midi-card-source.multi {
+      background: rgba(187, 154, 247, 0.15);
+      border-color: var(--omo-magenta);
+      color: var(--omo-magenta);
+    }
+    .midi-card-load-btn.isolate-btn {
+      border-color: var(--omo-ok);
+      color: var(--omo-ok);
+    }
+    .midi-card-load-btn.isolate-btn:hover {
+      background: var(--omo-ok);
+      color: var(--omo-bg);
+    }
+
+    /* ---------------- Module Personality Themes ---------------- */
+    .module-panel[data-type="midi_player"] {
+      background: linear-gradient(180deg, #171a28 0%, #10121b 100%);
+      border: 1px solid #3d4566;
+      box-shadow: inset 0 0 0 1px rgba(122, 162, 247, 0.2), 0 6px 18px rgba(0, 0, 0, 0.6);
+    }
+    .module-panel[data-type="midi_player"] .module-header {
+      background: #111422;
+      border-bottom: 1px solid #282f49;
+    }
+    .module-panel[data-type="midi_player"] .module-title {
+      color: var(--omo-cyan);
+    }
+
+    .module-panel[data-type="acid303"] {
+      background: linear-gradient(180deg, #2b2e3e 0%, #181924 100%);
+      border-top: 2px solid var(--omo-yellow);
+    }
+    .module-panel[data-type="acid303"] .module-title {
+      color: var(--omo-yellow);
+    }
+
+    .module-panel[data-type="percussion"] {
+      background: linear-gradient(180deg, #1f202b 0%, #13141d 100%);
+      border-top: 2px solid var(--omo-orange);
+    }
+    .module-panel[data-type="percussion"] .module-title {
+      color: var(--omo-orange);
+    }
+
+    .module-panel[data-type="filter"] {
+      background: linear-gradient(180deg, #1d1f2d 0%, #13141e 100%);
+      border-top: 2px solid var(--omo-accent);
+    }
+    .module-panel[data-type="filter"] .module-title {
+      color: var(--omo-accent);
+    }
+
+    .module-panel[data-type="tape_warmer"] {
+      background: linear-gradient(180deg, #28221c 0%, #171412 100%);
+      border-top: 2px solid #ff9e64;
+    }
+
+    .module-panel[data-type="bytebeat"] {
+      background: linear-gradient(180deg, #131e17 0%, #0c140f 100%);
+      border-top: 2px solid var(--omo-ok);
+    }
+    .module-panel[data-type="bytebeat"] .module-title {
+      color: var(--omo-ok);
+    }
+
+    .module-panel[data-type="mult"] {
+      background: linear-gradient(180deg, #1a1b26 0%, #12131b 100%);
+      border-top: 2px solid var(--omo-dim);
+    }
+
+    .module-panel[data-type="mixer"] {
+      background: linear-gradient(180deg, #191a25 0%, #101119 100%);
+      border-top: 2px solid #bb9af7;
+    }
+    .module-panel[data-type="mixer"] .module-title {
+      color: #bb9af7;
+    }
+
+    /* ---------------- TV Rack Simulation Mode ---------------- */
+    body.tv-rack-mode #top-bar {
+      height: 40px;
+      padding: 0 14px;
+      background: #0d0e14;
+    }
+    body.tv-rack-mode .rack-row {
+      margin-bottom: 24px;
+      box-shadow: inset 0 3px 12px rgba(0,0,0,0.85), 0 10px 32px rgba(0,0,0,0.7);
+    }
+    body.tv-rack-mode .module-title {
+      font-size: 12px;
+      letter-spacing: 1.2px;
+    }
+    body.tv-rack-mode .knob {
+      width: 48px;
+      height: 48px;
+    }
+    body.tv-rack-mode .knob-dial {
+      width: 36px;
+      height: 36px;
+    }
+    body.tv-rack-mode .jack {
+      width: 30px;
+      height: 30px;
+    }
+    body.tv-rack-mode .jack-hole {
+      width: 12px;
+      height: 12px;
+    }
+
+    /* Modal for saving patches */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0, 0, 0, 0.7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 200;
+      visibility: hidden;
+      opacity: 0;
+      transition: all 0.2s ease;
+    }
+
+    .modal-overlay.open {
+      visibility: visible;
+      opacity: 1;
+    }
+
+    .modal-box {
+      background: var(--omo-surface);
+      border: 1px solid var(--omo-border);
+      border-radius: 6px;
+      width: 320px;
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+    }
+
+    .modal-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--omo-accent);
+    }
+
+    .modal-input {
+      background: var(--omo-surface-2);
+      border: 1px solid var(--omo-border);
+      border-radius: 4px;
+      padding: 8px 10px;
+      color: var(--omo-fg);
+      font-family: inherit;
+      font-size: 12px;
+      outline: none;
+    }
+
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+  </style>
 </head>
 <body>
-  <main id="app">omomodular</main>
+
+  <!-- Top Header Bar -->
+  <header id="top-bar">
+    <div class="brand-section">
+      <div class="ascii-badge">[ omo : modular ]</div>
+      <div class="status-dot" title="DSP Running"></div>
+    </div>
+
+    <div class="controls-center">
+      <select id="preset-select" class="header-select" title="Select Preset">
+        <option value="">Loading presets...</option>
+      </select>
+      <button id="save-patch-btn" class="header-btn" title="Save current rack state">Save Patch</button>
+      <button id="clear-rack-btn" class="header-btn" title="Clear all FX and cables">Clear</button>
+      <button id="add-row-btn" class="header-btn" title="Add another Eurorack rail row">[+ Row]</button>
+    </div>
+
+    <div class="controls-center">
+      <button id="sync-btn" class="header-btn sync-btn" title="Synchronize all sound sources to downbeat [S]">&#x27F3; SYNC</button>
+      <button id="tv-rack-btn" class="header-btn" title="Toggle 80&quot; Fullscreen TV Rack Simulation [F]">&#x26F6; TV RACK</button>
+      <button id="midi-drawer-btn" class="header-btn" title="Open MIDI Archive & Search [M]">[M] MIDI</button>
+      <button id="ghost-btn" class="header-btn" title="Toggle cable transparency [C]">[C] Cables</button>
+      <button id="toggle-drawer-btn" class="header-btn" title="Open Module Library [Tab]">[Tab] + Modules</button>
+      <button id="mute-btn" class="header-btn mute-btn" title="Toggle audio mute [Space]">[SPACE] RUN</button>
+      <div class="master-vol-wrap">
+        <span>VOL</span>
+        <input type="range" id="master-vol" class="master-slider" min="0" max="1.2" step="0.01" value="0.8">
+      </div>
+    </div>
+  </header>
+
+  <!-- Left-sliding MIDI Archive & Search Drawer -->
+  <aside id="midi-drawer">
+    <div class="drawer-header">
+      <div style="display:flex; flex-direction:column; gap:2px;">
+        <span class="drawer-title">MIDI ARCHIVE</span>
+        <span class="midi-archive-badge">113,000+ SONGS &bull; NO LOGIN &bull; DRAG TO RACK</span>
+      </div>
+      <button id="close-midi-drawer-btn" class="mod-remove-btn">&times;</button>
+    </div>
+    <div class="midi-search-box">
+      <div class="midi-search-row">
+        <input type="text" id="midi-search-input" class="midi-input" placeholder="Search Daft Punk, Bach, Mario, Aphex..." autocomplete="off">
+        <button id="midi-search-submit-btn" class="header-btn active" style="font-size:10px;">FIND</button>
+      </div>
+      <div id="midi-search-chips" class="midi-chips-container">
+        <!-- Quick search chips injected by ui.js -->
+      </div>
+    </div>
+    <div class="midi-filter-pills">
+      <button class="midi-filter-pill active" data-filter="all">ALL FILES</button>
+      <button class="midi-filter-pill single-pill" data-filter="single">★ 1-TRACK RIFFS</button>
+      <button class="midi-filter-pill" data-filter="multi">MULTI-TRACK</button>
+    </div>
+    <div class="midi-drawer-tabs">
+      <button id="midi-tab-starters" class="midi-tab-btn active">STARTER RIFFS</button>
+      <button id="midi-tab-results" class="midi-tab-btn">SEARCH RESULTS (<span id="midi-results-count">0</span>)</button>
+    </div>
+    <div id="midi-list-container" class="midi-list">
+      <!-- Cards dynamically generated -->
+    </div>
+  </aside>
+
+  <!-- Eurorack Multi-Row Rails Viewport -->
+  <main id="rack-container">
+    <div id="rack">
+      <!-- .rack-row elements dynamically rendered by ui.js -->
+    </div>
+
+    <div class="add-row-bar">
+      <button id="bottom-add-row-btn" class="add-row-banner-btn">+ ADD EURORACK RAIL ROW</button>
+    </div>
+
+    <!-- Full viewport SVG for patch cables spanning all rows -->
+    <svg id="cables-svg"></svg>
+  </main>
+
+  <!-- Collapsible Module Library Drawer -->
+  <aside id="module-drawer">
+    <div class="drawer-header">
+      <span class="drawer-title">MODULE CATALOG (43 MODULES)</span>
+      <button id="close-drawer-btn" class="mod-remove-btn">&times;</button>
+    </div>
+    <div id="catalog-filters" class="drawer-filters">
+      <!-- Categories injected by ui.js -->
+    </div>
+    <div id="catalog-list">
+      <!-- Cards dynamically generated -->
+    </div>
+  </aside>
+
+  <!-- Save Patch Modal -->
+  <div id="save-modal" class="modal-overlay">
+    <div class="modal-box">
+      <div class="modal-title">SAVE PRESET PATCH</div>
+      <input type="text" id="patch-name-input" class="modal-input" placeholder="e.g. Abyssal Void Drone" value="">
+      <div class="modal-actions">
+        <button id="cancel-save-btn" class="header-btn">Cancel</button>
+        <button id="confirm-save-btn" class="header-btn active">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="midi_parser.js"></script>
+  <script src="dsp.js"></script>
+  <script src="cables.js"></script>
+  <script src="ui.js"></script>
   <script>
-    // hot-swap theme.css when the server signals a theme change
+    // App Bootstrap & Persistence Coordination
+    document.addEventListener('DOMContentLoaded', async () => {
+      const rackEl = document.getElementById('rack');
+      const cablesSvg = document.getElementById('cables-svg');
+      const presetSelect = document.getElementById('preset-select');
+      const muteBtn = document.getElementById('mute-btn');
+      const masterVolSlider = document.getElementById('master-vol');
+      const ghostBtn = document.getElementById('ghost-btn');
+      const savePatchBtn = document.getElementById('save-patch-btn');
+      const clearRackBtn = document.getElementById('clear-rack-btn');
+      const addRowBtn = document.getElementById('add-row-btn');
+      const bottomAddRowBtn = document.getElementById('bottom-add-row-btn');
+      const saveModal = document.getElementById('save-modal');
+      const patchNameInput = document.getElementById('patch-name-input');
+      const cancelSaveBtn = document.getElementById('cancel-save-btn');
+      const confirmSaveBtn = document.getElementById('confirm-save-btn');
+
+      const dsp = new DspEngine();
+      const cables = new CableManager(cablesSvg, rackEl, dsp);
+      const ui = new ModularRackUI(rackEl, dsp, cables);
+
+      if (window.location.hash === '#open-drawer' || window.location.search.includes('drawer=1')) {
+        const drawer = document.getElementById('module-drawer');
+        if (drawer) drawer.classList.add('open');
+      }
+
+      const syncBtn = document.getElementById('sync-btn');
+      if (syncBtn) {
+        syncBtn.addEventListener('click', () => {
+          ui.flashSyncBtn();
+          dsp.syncDownbeat();
+        });
+      }
+
+      const tvRackBtn = document.getElementById('tv-rack-btn');
+      if (tvRackBtn) {
+        tvRackBtn.addEventListener('click', () => {
+          ui.toggleTvRackMode();
+        });
+      }
+
+      if (addRowBtn) addRowBtn.addEventListener('click', () => ui.addRow());
+      if (bottomAddRowBtn) bottomAddRowBtn.addEventListener('click', () => ui.addRow());
+
+      // Auto-save debounce timer
+      let saveTimer = null;
+      window.onPatchModified = () => {
+        clearTimeout(saveTimer);
+        saveTimer = setTimeout(() => {
+          const currentState = {
+            rowCount: ui.getRowCount(),
+            modules: ui.modulesState,
+            cables: cables.cables,
+          };
+          fetch('/api/state', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(currentState),
+          }).catch(console.error);
+        }, 500);
+      };
+
+      // Load presets list
+      async function loadPresetsList(selectName = null) {
+        try {
+          const res = await fetch('/api/presets');
+          const list = await res.json();
+          presetSelect.innerHTML = '';
+          for (const p of list) {
+            const opt = document.createElement('option');
+            opt.value = p.name;
+            opt.textContent = `${p.type === 'factory' ? '★ ' : ''}${p.name}`;
+            if (selectName && p.name === selectName) {
+              opt.selected = true;
+            }
+            presetSelect.appendChild(opt);
+          }
+        } catch (e) {
+          console.error('Failed to load presets list:', e);
+        }
+      }
+
+      // Initial state load
+      try {
+        const res = await fetch('/api/state');
+        const state = await res.json();
+        ui.loadState(state);
+        await loadPresetsList(state.name);
+      } catch (e) {
+        console.error('Failed to load initial state:', e);
+      }
+
+      // Preset change
+      presetSelect.addEventListener('change', async (e) => {
+        const name = e.target.value;
+        if (!name) return;
+        try {
+          const res = await fetch(`/api/presets/${encodeURIComponent(name)}`);
+          const patch = await res.json();
+          ui.loadState(patch);
+          if (window.onPatchModified) window.onPatchModified();
+        } catch (err) {
+          console.error('Failed to load preset:', err);
+        }
+      });
+
+      // Master volume slider
+      masterVolSlider.addEventListener('input', (e) => {
+        dsp.ensureContext();
+        dsp.setMasterVolume(parseFloat(e.target.value));
+      });
+
+      // Mute button
+      muteBtn.addEventListener('click', () => {
+        const isMuted = dsp.toggleMute();
+        muteBtn.classList.toggle('muted', isMuted);
+        muteBtn.textContent = isMuted ? '[SPACE] MUTED' : '[SPACE] RUN';
+      });
+
+      // Ghost button
+      ghostBtn.addEventListener('click', () => {
+        const ghost = cables.toggleGhost();
+        ghostBtn.classList.toggle('active', ghost);
+      });
+
+      // Clear button
+      clearRackBtn.addEventListener('click', () => {
+        dsp.clearAll();
+        ui.loadState({
+          rowCount: 1,
+          modules: [
+            {
+              id: 'mixer_1',
+              type: 'mixer',
+              row: 0,
+              params: { ch1_gain: 0.8, ch2_gain: 0, ch3_gain: 0, ch4_gain: 0 },
+            }
+          ],
+          cables: [],
+        });
+        if (window.onPatchModified) window.onPatchModified();
+      });
+
+      // Save modal handlers
+      savePatchBtn.addEventListener('click', () => {
+        patchNameInput.value = presetSelect.value.replace(/^★\s*/, '') || 'My Drone Patch';
+        saveModal.classList.add('open');
+        patchNameInput.focus();
+      });
+
+      cancelSaveBtn.addEventListener('click', () => {
+        saveModal.classList.remove('open');
+      });
+
+      confirmSaveBtn.addEventListener('click', async () => {
+        const name = patchNameInput.value.trim();
+        if (!name) return;
+        const patchData = {
+          name,
+          rowCount: ui.getRowCount(),
+          modules: ui.modulesState,
+          cables: cables.cables,
+        };
+        try {
+          await fetch(`/api/presets/${encodeURIComponent(name)}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(patchData),
+          });
+          saveModal.classList.remove('open');
+          await loadPresetsList(name);
+        } catch (err) {
+          console.error('Failed to save patch:', err);
+        }
+      });
+
+      // WebSocket live theme hot-swap
+      function connectThemeWs() {
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const ws = new WebSocket(`${protocol}//${window.location.host}/ws/theme`);
+        ws.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            if (data.type === 'theme_changed') {
+              const link = document.getElementById('theme-sheet');
+              if (link) {
+                link.href = `theme.css?t=${Date.now()}`;
+              }
+              setTimeout(() => cables.render(), 100);
+            }
+          } catch (e) {}
+        };
+        ws.onclose = () => {
+          setTimeout(connectThemeWs, 2000);
+        };
+      }
+      connectThemeWs();
+    });
   </script>
 </body>
 </html>
