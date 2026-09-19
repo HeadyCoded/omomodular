@@ -1,0 +1,4 @@
+#!/bin/bash
+# Regenerate the omomodular theme whenever the Omarchy theme changes.
+command -v omarchy-omomodular-theme >/dev/null || exit 0
+omarchy-omomodular-theme >/dev/null
