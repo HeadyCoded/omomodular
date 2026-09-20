@@ -6,21 +6,28 @@ Features an authentic modular rack with physical rails, 3.5mm jacks, dangling ph
 
 ---
 
-## 42 Eurorack Modules
+## 51 Eurorack Modules
 
-OmoModular features an expansive ecosystem of 42 vintage, modern, and boutique Eurorack modules:
+OmoModular features an expansive ecosystem of 51 vintage, modern, and boutique Eurorack modules:
 
 | Module | Category | Description |
 | :--- | :--- | :--- |
 | **Dual Drone VCO** | Source | Dual analog waveforms, micro-detune, sub-octave, cross-FM, slow drift |
 | **Chord Swarm VCO** | Source | 4-voice supersaw & chord cluster with spread detuning, sub-bass, and chord modes |
 | **Wavetable VCO** | Source | Morphable wavetable oscillator across analog saw, digital pulse, vocal, and bell spectra |
+| **Dual Morphing Wavetable** | Source | Dual periodic wavetable oscillator with Fourier harmonic series, cross-FM, and sub-octave bass |
 | **FM Quad Operator** | Source | 4-operator FM synthesis engine with ratio tuning and feedback |
 | **Harmonic Oscillator** | Source | 6-overtone additive sine oscillator with individual harmonic level faders |
 | **Turing Machine** | Source | Music Thing style shift register generating quantized melodies in multiple musical scales |
 | **Sub-Bass Booster** | Source | Subharmonic frequency divider producing deep -1 and -2 octave low-end foundation |
 | **Acid 303 Voice** | Source | Roland TB-303 analog baseline voice with squelchy diode ladder filter and accent |
 | **Analog Drums (808)** | Percussion | Analog kick, snappy snare, and metallic hi-hat percussion voice |
+| **Open Sample Drum** | Percussion | Vintage PCM drum machine (909/707/Linn/DMX/CR-78) with 12-bit SP-1200 decimation and WAV drag-and-drop |
+| **Macro Percussion Voice** | Percussion | Plaits/Basimilus algorithmic percussion synth with 6 physical models, wavefolder, and punch |
+| **Amen Break Slicer** | Percussion | 16-step transient chopper breakbeat slicer with master BPM sync, jungle stutter, and reverse playback |
+| **16-Step DRUM MATRIX** | Percussion | 4-track clickable TR-style drum matrix sequencer with swing, accent, and direct trigger outs |
+| **Euclidean Poly-Rhythm** | Sequencer | 4-track Bjorklund Euclidean sequencer with independent step/pulse/offset rings and 4 trigger outs |
+| **Stochastic Random CV** | Modulation | Mutable Marbles inspired generative random melody and rhythmic gate engine with scale quantizer |
 | **Noise & Texture** | Texture | White, Pink, Brown noise generator with tape/vinyl texture |
 | **Bytebeat Glitch** | Lo-Fi | Algorithmic C-style one-line mathematical bytebeat oscillator |
 | **Ladder Filter** | Filter | Resonant 24dB lowpass/bandpass/highpass with saturation drive |
@@ -53,14 +60,23 @@ OmoModular features an expansive ecosystem of 42 vintage, modern, and boutique E
 | **Signal Mult & Inverter** | Utility | 1-to-3 audio signal splitter with dual direct outs and phase inverted output |
 | **A/B Crossfader** | Utility | Dual-channel crossfader with equal-power trigonometric morphing curve |
 | **VCA Glue Compressor** | Dynamics | Bus compressor with threshold, ratio, attack, release, and makeup gain |
+| **Sidechain Ducking VCA** | Dynamics | Dynamic ducking amplifier and envelope follower preventing low-end clash |
 | **MIDI File Player** | Source | Standard MIDI File (SMF 0/1) workstation with live stem mixer, CV/Gate outs, and drag-and-drop |
 | **4-Ch Mixer & Master** | Master | 4 stereo channels with gain, pan, master limiter, and live oscilloscope |
 
 ---
 
-## Open MIDI Archive & Live Search Drawer
+## Dual Sound Archive: Sample & MIDI Repositories
 
-Hit `[M]` or click the header button to slide out the left archive drawer:
+Hit `[M]` or click `[M] ARCHIVES` in the top bar to slide out the left archive drawer:
+
+### Sample Archive (`[♪ SAMPLES]`)
+- **12 Bundled Offline Starter Samples:** Embedded high-quality 16-bit 44.1kHz `.wav` percussion samples across 5 categories (808 Sub Kick, 909 Punch Kick, Linn Retro Kick, 909 Crisp Snare, 707 Rim Snare, 808 Handclap, 909 Open Hat, 808 Closed Hat, DMX Cowbell, Modular Laser Zap, Wooden Clave, and 165 BPM Amen Breakbeat).
+- **Freesound CC0 Creative Commons Online Search:** Search thousands of royalty-free drum samples and breaks with zero configuration required for starters, plus optional user Freesound API key saving.
+- **Web Audio Audition Preview:** Zero-latency `[▶ PLAY]` / `[■ STOP]` auditioning directly from the search cards through the master mixing engine before adding to the rack.
+- **Smart Drag & Drop Loading:** Drag any sample card directly onto an empty Eurorack rail slot to auto-spawn an `Open Sample Drum` (`sample_player`) or `Amen Break Slicer` (`amen_slicer`), or drop directly onto an existing module faceplate to instantly reload its audio buffer.
+
+### MIDI Archive (`[♫ MIDI FILES]`)
 - **113,000+ Songs Online:** Zero-login, direct search and live fetch from the public BitMidi archive.
 - **Single-Track Riff Filtering (`[★ 1-TRACK RIFFS]`):** Filter specifically for isolated single-instrument basslines, 303 squelches, arpeggios, and leads.
 - **Instant Stem Isolation (`[1-TRK]`):** Every multi-track song can be loaded as a full orchestration or isolated to a single lead/bass stem with one click.
@@ -104,6 +120,9 @@ OmoModular supports arbitrary rows of Eurorack rails:
 ## Presets & State
 
 - **Factory Presets:**
+  - `★ TR-Matrix Drums & Ducking Sidechain Bass`: 16-step TR-style clickable drum sequencer driving 909 kick, snare, and metallic hats, with a Sidechain Ducking VCA pumping a resonant sub-bass drone out of the kick's path.
+  - `★ Euclidean Breakbeat & Modular Sample Jam`: 4-track Euclidean polyrhythm sequencer driving 909 kick, 707 snare, macro percussion, and stochastic wavetable lead into delay/reverb and master console.
+  - `★ Jungle Amen Break & West-Coast Acid`: 165 BPM Amen break slicer in jungle stutter mode with macro sub kick, 303 acid line, tape warmer, and spring tank.
   - `★ 808 & 303 Acid Techno Jam`: Multi-stem drum machine and acid synth loop (discrete 808 Kick, Snare, and Hi-Hat stems alongside squelching 303 bassline). Hit `[SYNC]` or `S` to lock all stems in unison.
   - `★ The Colossus (3-Row Monster Rack)`: 3-row generative modular workstation showcasing cross-tier patching.
   - `★ Algorithmic Cyberpunk Glitch (2-Row)`: Dual-tier industrial glitch and breakbeat patch.

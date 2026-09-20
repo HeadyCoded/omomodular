@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import asyncio
 import json
 import sys
 import urllib.request
@@ -28,6 +29,7 @@ def _open_ui(url: str, open_browser: bool = True) -> None:
     """Open OmoModular inside a dedicated lightweight Chromium app window."""
     if not open_browser:
         return
+    util.clean_stale_singleton(_PROFILE_DIR)
     binary = util.which(*_BROWSERS)
     if binary and any(tag in Path(binary).name for tag in ("chrom", "brave")):
         _PROFILE_DIR.mkdir(parents=True, exist_ok=True)
@@ -83,20 +85,37 @@ def main() -> None:
 
     if _running_instance(cfg.server.host, cfg.server.port):
         print(f"omomodular: already running at {url}, bringing window to front...")
-        _open_ui(url, cfg.server.open_app)
+        if not util.focus_hyprland_window("OmoModular"):
+            _open_ui(url, cfg.server.open_app)
+        util.dismiss_launch_osd()
         sys.exit(0)
 
-    # Launch browser window right before uvicorn starts
-    _open_ui(url, cfg.server.open_app)
-
     app = create_app(cfg)
-    uvicorn.run(
+    uconf = uvicorn.Config(
         app,
         host=cfg.server.host,
         port=cfg.server.port,
         log_level="warning",
+        access_log=False,
     )
+    server = uvicorn.Server(uconf)
+
+    async def _opener() -> None:
+        if await util.wait_for_port(cfg.server.host, cfg.server.port, 10.0):
+            _open_ui(url, cfg.server.open_app)
+            await asyncio.sleep(0.5)
+            util.dismiss_launch_osd()
+
+    async def _run() -> None:
+        await asyncio.gather(server.serve(), _opener())
+
+    print(f"omomodular: serving on {url}")
+    try:
+        asyncio.run(_run())
+    except KeyboardInterrupt:
+        print("\nomomodular: stopped")
 
 
 if __name__ == "__main__":
     main()
+

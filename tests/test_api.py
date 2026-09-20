@@ -156,5 +156,94 @@ def test_api_midi_starters_validity(client):
         assert dl.content[:4] == b"MThd"
 
 
+def test_euclidean_breakbeat_jam_preset():
+    preset = FACTORY_PRESETS["★ Euclidean Breakbeat & Modular Sample Jam"]
+    assert len(preset["modules"]) >= 8
+    assert len(preset["cables"]) >= 8
+    types = {m["type"] for m in preset["modules"]}
+    assert "quad_euclid" in types
+    assert "sample_player" in types
+    assert "macro_percussion" in types
+    assert "stochastic_vault" in types
+    assert "wavetable_dual" in types
+    assert "mixer" in types
+
+
+def test_jungle_amen_acid_preset():
+    preset = FACTORY_PRESETS["★ Jungle Amen Break & West-Coast Acid"]
+    assert len(preset["modules"]) >= 6
+    assert len(preset["cables"]) >= 5
+    types = {m["type"] for m in preset["modules"]}
+    assert "amen_slicer" in types
+    assert "macro_percussion" in types
+    assert "acid303" in types
+    assert "mixer" in types
+
+
+def test_tr_matrix_sidechain_preset():
+    preset = FACTORY_PRESETS["★ TR-Matrix Drums & Ducking Sidechain Bass"]
+    assert len(preset["modules"]) >= 8
+    assert len(preset["cables"]) >= 9
+    types = {m["type"] for m in preset["modules"]}
+    assert "tr_matrix_seq" in types
+    assert "sidechain_vca" in types
+    assert "sample_player" in types
+    assert "macro_percussion" in types
+    assert "filter" in types
+    assert "mixer" in types
+
+
+def test_all_factory_presets_validity():
+    for name, patch in FACTORY_PRESETS.items():
+        assert "name" in patch
+        assert "modules" in patch
+        assert "cables" in patch
+        module_ids = {m["id"] for m in patch["modules"]}
+        for cable in patch["cables"]:
+            assert cable["from"]["moduleId"] in module_ids, f"Broken cable from in {name}"
+            assert cable["to"]["moduleId"] in module_ids, f"Broken cable to in {name}"
+
+
+def test_api_sample_starters(client):
+    res = client.get("/api/samples/starters")
+    assert res.status_code == 200
+    starters = res.json()
+    assert len(starters) >= 10
+    categories = {s["category"] for s in starters}
+    assert "kick" in categories
+    assert "snare" in categories
+    assert "hihat" in categories
+    assert "perc" in categories
+    assert "break" in categories
+
+    # Test category filtering
+    kicks = client.get("/api/samples/starters?category=kick").json()
+    assert len(kicks) >= 2
+    assert all(k["category"] == "kick" for k in kicks)
+
+
+def test_api_sample_download_starter(client):
+    res = client.get("/api/samples/download?starter=909_Punch_Kick.wav")
+    assert res.status_code == 200
+    assert res.headers["content-type"].startswith("audio/wav")
+    assert res.content.startswith(b"RIFF")
+
+
+def test_api_sample_search(client):
+    res = client.get("/api/samples/search?q=amen")
+    assert res.status_code == 200
+    data = res.json()
+    assert "results" in data
+    assert any("Amen" in item["title"] for item in data["results"])
+
+
+def test_api_sample_key_status(client):
+    res = client.get("/api/samples/key")
+    assert res.status_code == 200
+    data = res.json()
+    assert "has_key" in data
+
+
+
 
 

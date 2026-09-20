@@ -11,4 +11,5 @@ __pycache__/
 config.toml
 *-auth.json
 omomodular/midi/downloads/
+omomodular/samples/downloads/
 ui_*.png

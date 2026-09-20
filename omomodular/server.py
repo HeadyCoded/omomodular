@@ -155,6 +155,40 @@ def create_app(cfg: Config | None = None) -> FastAPI:
             raise HTTPException(status_code=404, detail="MIDI file not found")
         return FileResponse(file_path, media_type="audio/midi", filename=file_path.name)
 
+    @app.get("/api/samples/starters")
+    async def get_sample_starters(category: str = "all"):
+        from . import sample_service
+        return sample_service.list_starter_samples(category=category)
+
+    @app.get("/api/samples/search")
+    async def search_samples(q: str = "", category: str = "all", api_key: str | None = None):
+        from . import sample_service
+        results = await sample_service.search_samples(q, category=category, api_key=api_key)
+        return {"query": q, "category": category, "count": len(results), "results": results}
+
+    @app.get("/api/samples/download")
+    async def download_sample(starter: str | None = None, url: str | None = None, name: str | None = None):
+        from . import sample_service
+        file_path = await sample_service.fetch_sample(starter=starter, url=url, name=name)
+        if file_path is None or not file_path.is_file():
+            raise HTTPException(status_code=404, detail="Sample file not found")
+        media_type = "audio/wav" if file_path.suffix.lower() == ".wav" else "audio/mpeg"
+        return FileResponse(file_path, media_type=media_type, filename=file_path.name)
+
+    @app.get("/api/samples/key")
+    async def get_freesound_key_status():
+        from . import sample_service
+        key = sample_service.get_freesound_key()
+        return {"has_key": bool(key)}
+
+    @app.post("/api/samples/key")
+    async def save_freesound_key(payload: dict[str, str]):
+        key = payload.get("key", "").strip()
+        key_file = Path.home() / ".config/omomodular/freesound_key.txt"
+        key_file.parent.mkdir(parents=True, exist_ok=True)
+        key_file.write_text(key, "utf-8")
+        return {"status": "saved", "has_key": bool(key)}
+
     @app.get("/theme.css")
     async def get_theme():
         if cfg.theme_file.is_file():

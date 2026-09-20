@@ -84,7 +84,7 @@ class DspEngine {
     let baseBpm = (targetBpm !== null) ? targetBpm : this.masterBpm;
     let effRatio = typeof ratio === 'number' ? ratio : (parseFloat(ratio) || 1.0);
 
-    if (mod.type === 'percussion' || mod.type === 'acid303' || mod.type === 'sequencer') {
+    if (mod.type === 'percussion' || mod.type === 'acid303' || mod.type === 'sequencer' || mod.type === 'amen_slicer' || mod.type === 'quad_euclid' || mod.type === 'tr_matrix_seq') {
       const calculatedBpm = Math.max(30, Math.min(240, Math.round(baseBpm * effRatio)));
       mod.setParam('bpm', calculatedBpm);
       return { type: 'bpm', value: calculatedBpm };
@@ -274,6 +274,30 @@ class DspEngine {
       case 'midi_player':
         mod = new MidiPlayerModule(this.ctx, id, params);
         break;
+      case 'sample_player':
+        mod = new SamplePlayerModule(this.ctx, id, params);
+        break;
+      case 'macro_percussion':
+        mod = new MacroPercussionModule(this.ctx, id, params);
+        break;
+      case 'amen_slicer':
+        mod = new AmenSlicerModule(this.ctx, id, params);
+        break;
+      case 'quad_euclid':
+        mod = new QuadEuclidModule(this.ctx, id, params);
+        break;
+      case 'stochastic_vault':
+        mod = new StochasticVaultModule(this.ctx, id, params);
+        break;
+      case 'wavetable_dual':
+        mod = new DualWavetableModule(this.ctx, id, params);
+        break;
+      case 'sidechain_vca':
+        mod = new SidechainVcaModule(this.ctx, id, params);
+        break;
+      case 'tr_matrix_seq':
+        mod = new TrMatrixSeqModule(this.ctx, id, params);
+        break;
       case 'mixer':
         mod = new MixerModule(this.ctx, id, params, this.masterLimiter);
         break;
@@ -311,6 +335,12 @@ class DspEngine {
 
     try {
       sourceNode.connect(destNode);
+      if (typeof toMod.onConnectJack === 'function') {
+        toMod.onConnectJack(toJack, fromMod, fromJack);
+      }
+      if (typeof fromMod.onConnectOutputJack === 'function') {
+        fromMod.onConnectOutputJack(fromJack, toMod, toJack);
+      }
       return true;
     } catch (e) {
       console.error('Failed to connect audio nodes:', e);
@@ -331,6 +361,12 @@ class DspEngine {
       sourceNode.disconnect(destNode);
     } catch (e) {
       // AudioNode disconnect can throw if not connected
+    }
+    if (typeof toMod.onDisconnectJack === 'function') {
+      toMod.onDisconnectJack(toJack, fromMod, fromJack);
+    }
+    if (typeof fromMod.onDisconnectOutputJack === 'function') {
+      fromMod.onDisconnectOutputJack(fromJack, toMod, toJack);
     }
   }
 
@@ -4374,6 +4410,1577 @@ class MidiPlayerModule {
       this.gateNode.disconnect();
       this.velNode.disconnect();
       this.outGain.disconnect();
+    } catch (e) {}
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 44. Sample Player Module (Open Sample Drum)
+// ---------------------------------------------------------------------------
+class SamplePlayerModule {
+  constructor(ctx, id, params = {}) {
+    this.ctx = ctx;
+    this.id = id;
+    this.type = 'sample_player';
+
+    this.kit = params.kit || 'tr909';
+    this.voice = params.voice || 'kick';
+    this.pitch = params.pitch !== undefined ? parseFloat(params.pitch) : 0;
+    this.decay = params.decay !== undefined ? parseFloat(params.decay) : 0.45;
+    this.start = params.start !== undefined ? parseFloat(params.start) : 0;
+    this.crunch = params.crunch !== undefined ? parseFloat(params.crunch) : 0.25;
+    this.cutoff = params.cutoff !== undefined ? parseFloat(params.cutoff) : 12000;
+    this.level = params.level !== undefined ? parseFloat(params.level) : 1.0;
+
+    this.outGain = ctx.createGain();
+    this.outGain.gain.setValueAtTime(this.level, ctx.currentTime);
+
+    this.inNode = ctx.createGain();
+    this.filterNode = ctx.createBiquadFilter();
+    this.filterNode.type = 'lowpass';
+    this.filterNode.frequency.setValueAtTime(this.cutoff, ctx.currentTime);
+    this.filterNode.Q.setValueAtTime(2.0, ctx.currentTime);
+
+    this.crunchShaper = ctx.createWaveShaper();
+    this.updateCrunchCurve();
+
+    this.eocGain = ctx.createGain();
+    this.trigInputNode = ctx.createGain();
+    this.cvPitchInputNode = ctx.createGain();
+
+    this.inNode.connect(this.filterNode);
+    this.filterNode.connect(this.crunchShaper);
+    this.crunchShaper.connect(this.outGain);
+
+    this.customBuffer = null;
+    this.customName = '';
+    this.buffers = {};
+    this.connectedTrigSources = new Set();
+    this.onHit = null;
+
+    this.initBuiltinBuffers();
+  }
+
+  updateCrunchCurve() {
+    const samples = 512;
+    const curve = new Float32Array(samples);
+    const bits = Math.max(4, Math.round(16 - this.crunch * 10));
+    const step = Math.pow(0.5, bits - 1);
+    for (let i = 0; i < samples; ++i) {
+      const x = (i * 2) / samples - 1;
+      const quantized = Math.round(x / step) * step;
+      curve[i] = Math.tanh(quantized * (1.0 + this.crunch * 0.8));
+    }
+    this.crunchShaper.curve = curve;
+  }
+
+  initBuiltinBuffers() {
+    const sr = this.ctx.sampleRate;
+    const kits = ['tr909', 'tr707', 'linndrum', 'dmx', 'cr78'];
+    const voices = ['kick', 'snare', 'hihat', 'clap', 'perc'];
+
+    for (const k of kits) {
+      this.buffers[k] = {};
+      for (const v of voices) {
+        this.buffers[k][v] = this.synthesizeVoiceBuffer(k, v, sr);
+      }
+    }
+  }
+
+  synthesizeVoiceBuffer(kit, voice, sr) {
+    let dur = 0.5;
+    if (voice === 'kick') dur = kit === 'cr78' ? 0.35 : 0.55;
+    else if (voice === 'snare') dur = 0.4;
+    else if (voice === 'hihat') dur = 0.15;
+    else if (voice === 'clap') dur = 0.45;
+    else if (voice === 'perc') dur = 0.3;
+
+    const len = Math.floor(sr * dur);
+    const buf = this.ctx.createBuffer(1, len, sr);
+    const d = buf.getChannelData(0);
+
+    for (let i = 0; i < len; i++) {
+      const t = i / sr;
+      let sample = 0;
+
+      if (voice === 'kick') {
+        const startFreq = kit === 'tr909' ? 180 : kit === 'tr707' ? 220 : kit === 'linndrum' ? 140 : kit === 'dmx' ? 160 : 120;
+        const endFreq = kit === 'tr909' ? 44 : kit === 'tr707' ? 62 : kit === 'linndrum' ? 52 : kit === 'dmx' ? 48 : 75;
+        const sweepSpeed = kit === 'tr707' ? 0.03 : 0.055;
+        const f = endFreq + (startFreq - endFreq) * Math.exp(-t / sweepSpeed);
+        const env = Math.exp(-t / (kit === 'tr909' ? 0.22 : 0.16));
+        const click = (t < 0.003) ? (Math.random() * 2 - 1) * Math.exp(-t / 0.001) : 0;
+        sample = Math.sin(2 * Math.PI * f * t) * env + click * 0.4;
+      } else if (voice === 'snare') {
+        const bodyF = kit === 'tr909' ? 185 : kit === 'tr707' ? 210 : kit === 'linndrum' ? 190 : kit === 'dmx' ? 220 : 260;
+        const bodyEnv = Math.exp(-t / 0.09);
+        const noiseEnv = Math.exp(-t / (kit === 'linndrum' ? 0.25 : 0.18));
+        const body = Math.sin(2 * Math.PI * bodyF * t) * bodyEnv;
+        const noise = (Math.random() * 2 - 1) * noiseEnv;
+        sample = body * 0.5 + noise * 0.5;
+      } else if (voice === 'hihat') {
+        const noise = (Math.random() * 2 - 1);
+        const env = Math.exp(-t / (kit === 'cr78' ? 0.035 : 0.065));
+        const metal = (Math.sin(2 * Math.PI * 7200 * t) + Math.sin(2 * Math.PI * 9400 * t)) * 0.3;
+        sample = (noise * 0.7 + metal * 0.3) * env;
+      } else if (voice === 'clap') {
+        let env = 0;
+        if (t < 0.011) env = Math.exp(-t / 0.004);
+        else if (t < 0.022) env = Math.exp(-(t - 0.011) / 0.004);
+        else if (t < 0.033) env = Math.exp(-(t - 0.022) / 0.004);
+        else env = Math.exp(-(t - 0.033) / (kit === 'linndrum' ? 0.25 : 0.16));
+        const noise = (Math.random() * 2 - 1);
+        sample = noise * env;
+      } else if (voice === 'perc') {
+        const pf = kit === 'cr78' ? 620 : kit === 'tr707' ? 540 : kit === 'dmx' ? 180 : 960;
+        const env = Math.exp(-t / (kit === 'cr78' ? 0.14 : 0.05));
+        sample = Math.sin(2 * Math.PI * pf * t) * env;
+      }
+
+      d[i] = Math.max(-1, Math.min(1, sample * 0.95));
+    }
+
+    return buf;
+  }
+
+  getActiveBuffer() {
+    if (this.kit === 'custom' && this.customBuffer) {
+      return this.customBuffer;
+    }
+    if (this.buffers[this.kit] && this.buffers[this.kit][this.voice]) {
+      return this.buffers[this.kit][this.voice];
+    }
+    return (this.buffers.tr909 && this.buffers.tr909.kick) ? this.buffers.tr909.kick : null;
+  }
+
+  loadCustomBuffer(audioBuf, name = '') {
+    this.customBuffer = audioBuf;
+    this.customName = name;
+    this.kit = 'custom';
+  }
+
+  triggerHit(scheduledTime = null) {
+    if (!this.ctx || this.ctx.state !== 'running') return;
+    const now = scheduledTime || this.ctx.currentTime;
+    const buf = this.getActiveBuffer();
+    if (!buf) return;
+
+    const source = this.ctx.createBufferSource();
+    source.buffer = buf;
+
+    const pitchRatio = Math.pow(2, this.pitch / 12);
+    source.playbackRate.setValueAtTime(pitchRatio, now);
+
+    const env = this.ctx.createGain();
+    env.gain.setValueAtTime(1.0, now);
+    env.gain.exponentialRampToValueAtTime(0.001, now + this.decay);
+
+    source.connect(env);
+    env.connect(this.filterNode);
+
+    const startOffset = Math.max(0, Math.min(buf.duration - 0.01, (this.start / 100) * buf.duration));
+    source.start(now, startOffset);
+    source.stop(now + this.decay);
+
+    const eocTime = now + Math.min(this.decay, (buf.duration - startOffset) / pitchRatio);
+    this.scheduleEocPulse(eocTime);
+
+    if (this.onHit) this.onHit();
+  }
+
+  scheduleEocPulse(time) {
+    if (!this.ctx) return;
+    try {
+      this.eocGain.gain.setValueAtTime(1.0, time);
+      this.eocGain.gain.setValueAtTime(0.0, time + 0.006);
+    } catch (e) {}
+  }
+
+  onConnectJack(jack, fromMod, fromJack) {
+    if (jack === 'trig') {
+      this.connectedTrigSources.add(fromMod);
+    }
+  }
+
+  onDisconnectJack(jack, fromMod, fromJack) {
+    if (jack === 'trig') {
+      this.connectedTrigSources.delete(fromMod);
+    }
+  }
+
+  setParam(name, val) {
+    if (name === 'kit') {
+      this.kit = val;
+    } else if (name === 'voice') {
+      this.voice = val;
+    } else if (name === 'pitch') {
+      this.pitch = parseFloat(val);
+    } else if (name === 'decay') {
+      this.decay = Math.max(0.02, Math.min(2.5, parseFloat(val)));
+    } else if (name === 'start') {
+      this.start = Math.max(0, Math.min(100, parseFloat(val)));
+    } else if (name === 'crunch') {
+      this.crunch = Math.max(0, Math.min(1.0, parseFloat(val)));
+      this.updateCrunchCurve();
+    } else if (name === 'cutoff') {
+      this.cutoff = Math.max(200, Math.min(14000, parseFloat(val)));
+      this.filterNode.frequency.setTargetAtTime(this.cutoff, this.ctx.currentTime, 0.02);
+    } else if (name === 'level') {
+      this.level = Math.max(0, Math.min(2.0, parseFloat(val)));
+      this.outGain.gain.setTargetAtTime(this.level, this.ctx.currentTime, 0.02);
+    }
+  }
+
+  getJackOutputNode(jack) {
+    if (jack === 'eoc') return this.eocGain;
+    return this.outGain;
+  }
+
+  getJackInputNode(jack) {
+    if (jack === 'trig') return this.trigInputNode;
+    if (jack === 'cv_pitch') return this.cvPitchInputNode;
+    return this.inNode;
+  }
+
+  dispose() {
+    try {
+      this.inNode.disconnect();
+      this.filterNode.disconnect();
+      this.crunchShaper.disconnect();
+      this.outGain.disconnect();
+      this.eocGain.disconnect();
+      this.trigInputNode.disconnect();
+      this.cvPitchInputNode.disconnect();
+    } catch (e) {}
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 45. Macro Percussion Synthesizer (West-Coast Algorithmic Drum Synth)
+// ---------------------------------------------------------------------------
+class MacroPercussionModule {
+  constructor(ctx, id, params = {}) {
+    this.ctx = ctx;
+    this.id = id;
+    this.type = 'macro_percussion';
+
+    this.model = params.model || 'bass_drum';
+    this.pitch = params.pitch !== undefined ? parseFloat(params.pitch) : 55;
+    this.decay = params.decay !== undefined ? parseFloat(params.decay) : 0.35;
+    this.harmonics = params.harmonics !== undefined ? parseFloat(params.harmonics) : 0.4;
+    this.morph = params.morph !== undefined ? parseFloat(params.morph) : 0.3;
+    this.fold = params.fold !== undefined ? parseFloat(params.fold) : 0.2;
+    this.accent = params.accent !== undefined ? parseFloat(params.accent) : 0.75;
+
+    this.outGain = ctx.createGain();
+    this.outGain.gain.setValueAtTime(0.9, ctx.currentTime);
+
+    this.trigInputNode = ctx.createGain();
+    this.cvMorphInputNode = ctx.createGain();
+    this.cvPitchInputNode = ctx.createGain();
+
+    this.wavefolder = ctx.createWaveShaper();
+    this.updateWavefoldCurve();
+    this.wavefolder.connect(this.outGain);
+
+    this.onHit = null;
+  }
+
+  updateWavefoldCurve() {
+    const samples = 512;
+    const curve = new Float32Array(samples);
+    const folds = 1.0 + this.fold * 4.0;
+    for (let i = 0; i < samples; ++i) {
+      const x = (i * 2) / samples - 1;
+      curve[i] = Math.sin(x * Math.PI * folds) * 0.85;
+    }
+    this.wavefolder.curve = curve;
+  }
+
+  triggerHit(scheduledTime = null) {
+    if (!this.ctx || this.ctx.state !== 'running') return;
+    const now = scheduledTime || this.ctx.currentTime;
+    const model = this.model;
+    const dur = this.decay;
+    const gainScale = 0.5 + this.accent * 0.5;
+
+    if (model === 'bass_drum') {
+      const carrier = this.ctx.createOscillator();
+      const mod = this.ctx.createOscillator();
+      const modGain = this.ctx.createGain();
+      const env = this.ctx.createGain();
+
+      carrier.frequency.setValueAtTime(this.pitch * 3.5, now);
+      carrier.frequency.exponentialRampToValueAtTime(Math.max(25, this.pitch), now + 0.05);
+
+      mod.frequency.setValueAtTime(this.pitch * 4.5, now);
+      mod.frequency.exponentialRampToValueAtTime(30, now + 0.07);
+
+      modGain.gain.setValueAtTime((this.harmonics * 400 + 50) * gainScale, now);
+      modGain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
+
+      mod.connect(carrier.frequency);
+
+      env.gain.setValueAtTime(1.1 * gainScale, now);
+      env.gain.exponentialRampToValueAtTime(0.001, now + dur);
+
+      carrier.connect(env);
+      env.connect(this.wavefolder);
+
+      carrier.start(now);
+      mod.start(now);
+      carrier.stop(now + dur);
+      mod.stop(now + dur);
+    } else if (model === 'snare_drum') {
+      const osc = this.ctx.createOscillator();
+      const oscEnv = this.ctx.createGain();
+      osc.frequency.setValueAtTime(Math.max(80, this.pitch * 2.5), now);
+      osc.frequency.exponentialRampToValueAtTime(this.pitch, now + 0.06);
+
+      oscEnv.gain.setValueAtTime(0.8 * gainScale, now);
+      oscEnv.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+      osc.connect(oscEnv);
+      oscEnv.connect(this.wavefolder);
+
+      const bSize = Math.floor(this.ctx.sampleRate * 0.35);
+      const b = this.ctx.createBuffer(1, bSize, this.ctx.sampleRate);
+      const d = b.getChannelData(0);
+      for (let i = 0; i < bSize; i++) d[i] = Math.random() * 2 - 1;
+      const noise = this.ctx.createBufferSource();
+      noise.buffer = b;
+
+      const filt = this.ctx.createBiquadFilter();
+      filt.type = 'bandpass';
+      filt.frequency.setValueAtTime(1500 + this.harmonics * 2500, now);
+      filt.Q.setValueAtTime(2.0 + this.morph * 6.0, now);
+
+      const noiseEnv = this.ctx.createGain();
+      noiseEnv.gain.setValueAtTime(0.9 * gainScale, now);
+      noiseEnv.gain.exponentialRampToValueAtTime(0.001, now + dur * 0.7);
+
+      noise.connect(filt);
+      filt.connect(noiseEnv);
+      noiseEnv.connect(this.wavefolder);
+
+      osc.start(now);
+      noise.start(now);
+      osc.stop(now + 0.15);
+      noise.stop(now + dur);
+    } else if (model === 'metallic_hat') {
+      const ratios = [240, 380, 540, 630, 790, 1100];
+      const clusterGain = this.ctx.createGain();
+      clusterGain.gain.setValueAtTime(0.25 * gainScale, now);
+
+      const filt = this.ctx.createBiquadFilter();
+      filt.type = 'bandpass';
+      filt.frequency.setValueAtTime(5000 + this.morph * 5000, now);
+      filt.Q.setValueAtTime(3.0 + this.harmonics * 8.0, now);
+
+      const env = this.ctx.createGain();
+      env.gain.setValueAtTime(1.0, now);
+      env.gain.exponentialRampToValueAtTime(0.001, now + Math.min(dur, 0.4));
+
+      for (const r of ratios) {
+        const osc = this.ctx.createOscillator();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(r * (this.pitch / 55), now);
+        osc.connect(clusterGain);
+        osc.start(now);
+        osc.stop(now + Math.min(dur, 0.45));
+      }
+
+      clusterGain.connect(filt);
+      filt.connect(env);
+      env.connect(this.wavefolder);
+    } else if (model === 'burst_clap') {
+      const bSize = Math.floor(this.ctx.sampleRate * (dur + 0.05));
+      const b = this.ctx.createBuffer(1, bSize, this.ctx.sampleRate);
+      const d = b.getChannelData(0);
+      const sr = this.ctx.sampleRate;
+      for (let i = 0; i < bSize; i++) {
+        const t = i / sr;
+        let env = 0;
+        if (t < 0.011) env = Math.exp(-t / 0.003);
+        else if (t < 0.022) env = Math.exp(-(t - 0.011) / 0.003);
+        else if (t < 0.033) env = Math.exp(-(t - 0.022) / 0.003);
+        else env = Math.exp(-(t - 0.033) / dur);
+        d[i] = (Math.random() * 2 - 1) * env * gainScale;
+      }
+      const noise = this.ctx.createBufferSource();
+      noise.buffer = b;
+
+      const filt = this.ctx.createBiquadFilter();
+      filt.type = 'bandpass';
+      filt.frequency.setValueAtTime(1200 + this.harmonics * 1400, now);
+      filt.Q.setValueAtTime(1.8 + this.morph * 3.0, now);
+
+      noise.connect(filt);
+      filt.connect(this.wavefolder);
+      noise.start(now);
+    } else if (model === 'fm_zap') {
+      const osc = this.ctx.createOscillator();
+      const mod = this.ctx.createOscillator();
+      const modGain = this.ctx.createGain();
+      const env = this.ctx.createGain();
+
+      osc.frequency.setValueAtTime(this.pitch * 10, now);
+      osc.frequency.exponentialRampToValueAtTime(35, now + Math.min(dur, 0.2));
+
+      mod.frequency.setValueAtTime(this.pitch * 6, now);
+      modGain.gain.setValueAtTime((this.harmonics * 600 + 100) * gainScale, now);
+      modGain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+
+      mod.connect(osc.frequency);
+
+      env.gain.setValueAtTime(1.0 * gainScale, now);
+      env.gain.exponentialRampToValueAtTime(0.001, now + dur);
+
+      osc.connect(env);
+      env.connect(this.wavefolder);
+
+      osc.start(now);
+      mod.start(now);
+      osc.stop(now + dur);
+      mod.stop(now + dur);
+    } else {
+      const osc = this.ctx.createOscillator();
+      const env = this.ctx.createGain();
+      osc.frequency.setValueAtTime(this.pitch * 6, now);
+      osc.frequency.exponentialRampToValueAtTime(this.pitch * 3, now + 0.025);
+
+      env.gain.setValueAtTime(1.0 * gainScale, now);
+      env.gain.exponentialRampToValueAtTime(0.001, now + Math.min(dur, 0.08));
+
+      osc.connect(env);
+      env.connect(this.wavefolder);
+
+      osc.start(now);
+      osc.stop(now + 0.09);
+    }
+
+    if (this.onHit) this.onHit(this.accent);
+  }
+
+  setParam(name, val) {
+    if (name === 'model') this.model = val;
+    else if (name === 'pitch') this.pitch = parseFloat(val);
+    else if (name === 'decay') this.decay = Math.max(0.05, Math.min(2.0, parseFloat(val)));
+    else if (name === 'harmonics') this.harmonics = Math.max(0, Math.min(1.0, parseFloat(val)));
+    else if (name === 'morph') this.morph = Math.max(0, Math.min(1.0, parseFloat(val)));
+    else if (name === 'fold') {
+      this.fold = Math.max(0, Math.min(1.0, parseFloat(val)));
+      this.updateWavefoldCurve();
+    } else if (name === 'accent') this.accent = Math.max(0, Math.min(1.0, parseFloat(val)));
+  }
+
+  getJackOutputNode(jack) {
+    return this.outGain;
+  }
+
+  getJackInputNode(jack) {
+    if (jack === 'trig') return this.trigInputNode;
+    if (jack === 'cv_morph') return this.cvMorphInputNode;
+    return this.cvPitchInputNode;
+  }
+
+  dispose() {
+    try {
+      this.wavefolder.disconnect();
+      this.outGain.disconnect();
+      this.trigInputNode.disconnect();
+      this.cvMorphInputNode.disconnect();
+      this.cvPitchInputNode.disconnect();
+    } catch (e) {}
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 46. Amen Break Slicer Module (Glitch & Breakbeat Chopper)
+// ---------------------------------------------------------------------------
+class AmenSlicerModule {
+  constructor(ctx, id, params = {}) {
+    this.ctx = ctx;
+    this.id = id;
+    this.type = 'amen_slicer';
+
+    this.bpm = params.bpm || 165;
+    this.break = params.break || 'amen_classic';
+    this.mode = params.mode || 'sequential';
+    this.slice = params.slice !== undefined ? parseInt(params.slice) : 1;
+    this.stutter = params.stutter !== undefined ? parseFloat(params.stutter) : 0.2;
+    this.reverse = params.reverse !== undefined ? parseFloat(params.reverse) : 0.15;
+    this.pitch = params.pitch !== undefined ? parseFloat(params.pitch) : 0;
+    this.filter = params.filter !== undefined ? parseFloat(params.filter) : 10000;
+
+    this.outGain = ctx.createGain();
+    this.outGain.gain.setValueAtTime(0.9, ctx.currentTime);
+
+    this.inNode = ctx.createGain();
+    this.filterNode = ctx.createBiquadFilter();
+    this.filterNode.type = 'lowpass';
+    this.filterNode.frequency.setValueAtTime(this.filter, ctx.currentTime);
+
+    this.sliceGate = ctx.createGain();
+    this.trigInputNode = ctx.createGain();
+    this.sliceCvInputNode = ctx.createGain();
+
+    this.inNode.connect(this.filterNode);
+    this.filterNode.connect(this.outGain);
+
+    this.currentStep = 0;
+    this.isRunning = true;
+    this.slices = [];
+    this.revSlices = [];
+    this.customBreak = null;
+    this.onStep = null;
+
+    this.initBreakSlices();
+    this.runClock();
+  }
+
+  initBreakSlices() {
+    const sr = this.ctx.sampleRate;
+    const sliceDur = (60 / this.bpm) / 4;
+    const sliceLen = Math.floor(sr * sliceDur);
+
+    this.slices = [];
+    this.revSlices = [];
+
+    for (let s = 0; s < 16; s++) {
+      const fBuf = this.ctx.createBuffer(1, sliceLen, sr);
+      const rBuf = this.ctx.createBuffer(1, sliceLen, sr);
+      const fd = fBuf.getChannelData(0);
+      const rd = rBuf.getChannelData(0);
+
+      const isKick = (s === 0 || s === 5 || s === 8 || s === 9 || s === 13);
+      const isSnare = (s === 3 || s === 7 || s === 10 || s === 14);
+      const isRide = (s % 2 === 0);
+
+      for (let i = 0; i < sliceLen; i++) {
+        const t = i / sr;
+        let v = 0;
+        if (isKick) {
+          const f = 45 + 130 * Math.exp(-t / 0.04);
+          v += Math.sin(2 * Math.PI * f * t) * Math.exp(-t / 0.12);
+        }
+        if (isSnare) {
+          const body = Math.sin(2 * Math.PI * 210 * t) * Math.exp(-t / 0.08);
+          const snap = (Math.random() * 2 - 1) * Math.exp(-t / 0.16);
+          v += body * 0.45 + snap * 0.65;
+        }
+        if (isRide) {
+          v += (Math.random() * 2 - 1) * Math.exp(-t / 0.07) * 0.35;
+        } else {
+          v += (Math.random() * 2 - 1) * Math.exp(-t / 0.04) * 0.15;
+        }
+
+        fd[i] = Math.max(-1, Math.min(1, v));
+      }
+
+      for (let i = 0; i < sliceLen; i++) {
+        rd[i] = fd[sliceLen - 1 - i];
+      }
+
+      this.slices.push(fBuf);
+      this.revSlices.push(rBuf);
+    }
+  }
+
+  loadCustomBreak(audioBuf, name = '') {
+    this.customBreak = audioBuf;
+    this.break = 'custom';
+    const totalLen = audioBuf.length;
+    const sliceLen = Math.floor(totalLen / 16);
+    const sr = audioBuf.sampleRate;
+    this.slices = [];
+    this.revSlices = [];
+
+    const srcData = audioBuf.getChannelData(0);
+    for (let s = 0; s < 16; s++) {
+      const fBuf = this.ctx.createBuffer(1, sliceLen, sr);
+      const rBuf = this.ctx.createBuffer(1, sliceLen, sr);
+      const fd = fBuf.getChannelData(0);
+      const rd = rBuf.getChannelData(0);
+      const offset = s * sliceLen;
+
+      for (let i = 0; i < sliceLen; i++) {
+        fd[i] = srcData[offset + i] || 0;
+        rd[i] = srcData[offset + sliceLen - 1 - i] || 0;
+      }
+      this.slices.push(fBuf);
+      this.revSlices.push(rBuf);
+    }
+  }
+
+  runClock() {
+    if (!this.isRunning) return;
+    this.playCurrentSlice();
+    this.currentStep = (this.currentStep + 1) % 16;
+    const intervalMs = Math.floor((60000 / this.bpm) / 4);
+    this.timer = setTimeout(() => this.runClock(), intervalMs);
+  }
+
+  playCurrentSlice(scheduledTime = null) {
+    if (!this.ctx || this.ctx.state !== 'running' || this.slices.length === 0) return;
+    const now = scheduledTime || this.ctx.currentTime;
+
+    let targetIdx = this.currentStep;
+    if (this.mode === 'glitch_random') {
+      targetIdx = Math.floor(Math.random() * 16);
+    } else if (this.mode === 'jungle_stutter') {
+      if (Math.random() < this.stutter) {
+        targetIdx = (this.currentStep < 4) ? 0 : 3;
+      }
+    } else if (this.mode === 'half_time') {
+      targetIdx = (Math.floor(this.currentStep / 2) * 2) % 16;
+    } else if (this.mode === 'reverse_funk') {
+      targetIdx = (15 - this.currentStep) % 16;
+    }
+
+    const useRev = (this.reverse > 0 && Math.random() < this.reverse);
+    const buf = useRev ? this.revSlices[targetIdx] : this.slices[targetIdx];
+    if (!buf) return;
+
+    const source = this.ctx.createBufferSource();
+    source.buffer = buf;
+    source.playbackRate.setValueAtTime(Math.pow(2, this.pitch / 12), now);
+
+    source.connect(this.filterNode);
+    source.start(now);
+
+    try {
+      this.sliceGate.gain.setValueAtTime(1.0, now);
+      this.sliceGate.gain.setValueAtTime(0.0, now + 0.01);
+    } catch (e) {}
+
+    if (this.onStep) this.onStep(targetIdx);
+  }
+
+  stepSlice() {
+    this.playCurrentSlice();
+    this.currentStep = (this.currentStep + 1) % 16;
+  }
+
+  rollSlice() {
+    const stepDur = (60 / this.bpm) / 8;
+    for (let r = 0; r < 4; r++) {
+      setTimeout(() => this.playCurrentSlice(), r * stepDur * 1000);
+    }
+  }
+
+  resetClock(now = null) {
+    clearTimeout(this.timer);
+    this.currentStep = 0;
+    this.runClock();
+  }
+
+  setParam(name, val) {
+    if (name === 'bpm') {
+      this.bpm = Math.max(50, Math.min(240, Math.round(val)));
+      this.initBreakSlices();
+    } else if (name === 'break') {
+      this.break = val;
+      this.initBreakSlices();
+    } else if (name === 'mode') {
+      this.mode = val;
+    } else if (name === 'slice') {
+      this.slice = Math.max(1, Math.min(16, parseInt(val)));
+    } else if (name === 'stutter') {
+      this.stutter = Math.max(0, Math.min(1.0, parseFloat(val)));
+    } else if (name === 'reverse') {
+      this.reverse = Math.max(0, Math.min(1.0, parseFloat(val)));
+    } else if (name === 'pitch') {
+      this.pitch = parseFloat(val);
+    } else if (name === 'filter') {
+      this.filter = Math.max(200, Math.min(14000, parseFloat(val)));
+      this.filterNode.frequency.setTargetAtTime(this.filter, this.ctx.currentTime, 0.02);
+    }
+  }
+
+  getJackOutputNode(jack) {
+    if (jack === 'slice_gate') return this.sliceGate;
+    return this.outGain;
+  }
+
+  getJackInputNode(jack) {
+    if (jack === 'trig') return this.trigInputNode;
+    if (jack === 'slice_cv') return this.sliceCvInputNode;
+    return this.inNode;
+  }
+
+  dispose() {
+    this.isRunning = false;
+    clearTimeout(this.timer);
+    try {
+      this.inNode.disconnect();
+      this.filterNode.disconnect();
+      this.outGain.disconnect();
+      this.sliceGate.disconnect();
+      this.trigInputNode.disconnect();
+      this.sliceCvInputNode.disconnect();
+    } catch (e) {}
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 47. Quad Euclidean Poly-Rhythm Trigger Sequencer Module
+// ---------------------------------------------------------------------------
+class QuadEuclidModule {
+  constructor(ctx, id, params = {}) {
+    this.ctx = ctx;
+    this.id = id;
+    this.type = 'quad_euclid';
+
+    this.bpm = params.bpm || 125;
+    this.active_ch = params.active_ch || 'ch1';
+    this.gate_len = params.gate_len !== undefined ? parseFloat(params.gate_len) : 30;
+    this.run = params.run || 'running';
+    this.isRunning = (this.run === 'running');
+
+    this.tracks = {
+      ch1: { steps: 16, pulses: 4, offset: 0, currentStep: 0, pattern: [] },
+      ch2: { steps: 16, pulses: 2, offset: 4, currentStep: 0, pattern: [] },
+      ch3: { steps: 16, pulses: 7, offset: 2, currentStep: 0, pattern: [] },
+      ch4: { steps: 12, pulses: 5, offset: 1, currentStep: 0, pattern: [] },
+    };
+
+    if (params.steps !== undefined) this.tracks.ch1.steps = parseInt(params.steps);
+    if (params.pulses !== undefined) this.tracks.ch1.pulses = parseInt(params.pulses);
+    if (params.offset !== undefined) this.tracks.ch1.offset = parseInt(params.offset);
+
+    this.trigNodes = {
+      trig1: ctx.createGain(),
+      trig2: ctx.createGain(),
+      trig3: ctx.createGain(),
+      trig4: ctx.createGain(),
+    };
+
+    this.clockInputNode = ctx.createGain();
+    this.resetInputNode = ctx.createGain();
+
+    this.connectedTargets = {
+      trig1: new Set(),
+      trig2: new Set(),
+      trig3: new Set(),
+      trig4: new Set(),
+    };
+
+    this.onStep = null;
+    this.recomputePatterns();
+    this.runClock();
+  }
+
+  bjorklund(steps, pulses, offset) {
+    const s = Math.max(1, steps);
+    const p = Math.min(s, Math.max(0, pulses));
+    const base = new Array(s).fill(0);
+    if (p > 0) {
+      for (let i = 0; i < p; i++) {
+        base[Math.floor((i * s) / p)] = 1;
+      }
+    }
+    const result = [];
+    for (let i = 0; i < s; i++) {
+      result.push(base[(i + offset) % s]);
+    }
+    return result;
+  }
+
+  recomputePatterns() {
+    for (const tr of Object.values(this.tracks)) {
+      tr.pattern = this.bjorklund(tr.steps, tr.pulses, tr.offset);
+    }
+  }
+
+  runClock() {
+    if (!this.isRunning) return;
+    const now = this.ctx.currentTime;
+    const activeMap = {};
+
+    const chKeys = ['ch1', 'ch2', 'ch3', 'ch4'];
+    const trigKeys = ['trig1', 'trig2', 'trig3', 'trig4'];
+
+    for (let i = 0; i < 4; i++) {
+      const chId = chKeys[i];
+      const trigKey = trigKeys[i];
+      const tr = this.tracks[chId];
+      const isActive = tr.pattern[tr.currentStep % tr.pattern.length] === 1;
+      activeMap[chId] = isActive;
+
+      if (isActive) {
+        this.emitTriggerPulse(this.trigNodes[trigKey], now);
+
+        for (const target of this.connectedTargets[trigKey]) {
+          if (typeof target.triggerHit === 'function') target.triggerHit(now);
+          else if (typeof target.stepSlice === 'function') target.stepSlice();
+        }
+      }
+
+      tr.currentStep = (tr.currentStep + 1) % tr.pattern.length;
+    }
+
+    if (this.onStep) this.onStep(activeMap);
+
+    const intervalMs = Math.floor((60000 / this.bpm) / 4);
+    this.timer = setTimeout(() => this.runClock(), intervalMs);
+  }
+
+  emitTriggerPulse(node, now) {
+    try {
+      const osc = this.ctx.createOscillator();
+      const env = this.ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(500, now);
+      osc.frequency.exponentialRampToValueAtTime(80, now + 0.015);
+
+      env.gain.setValueAtTime(0.8, now);
+      env.gain.exponentialRampToValueAtTime(0.001, now + (this.gate_len / 1000));
+
+      osc.connect(env);
+      env.connect(node);
+      osc.start(now);
+      osc.stop(now + 0.02);
+    } catch (e) {}
+  }
+
+  onConnectOutputJack(fromJack, toMod, toJack) {
+    if (this.connectedTargets[fromJack]) {
+      this.connectedTargets[fromJack].add(toMod);
+    }
+  }
+
+  onDisconnectOutputJack(fromJack, toMod, toJack) {
+    if (this.connectedTargets[fromJack]) {
+      this.connectedTargets[fromJack].delete(toMod);
+    }
+  }
+
+  resetClock(now = null) {
+    clearTimeout(this.timer);
+    for (const tr of Object.values(this.tracks)) tr.currentStep = 0;
+    if (this.isRunning) this.runClock();
+  }
+
+  setParam(name, val) {
+    if (name === 'bpm') {
+      this.bpm = Math.max(40, Math.min(240, Math.round(val)));
+    } else if (name === 'active_ch') {
+      this.active_ch = val;
+    } else if (name === 'steps') {
+      if (this.tracks[this.active_ch]) {
+        this.tracks[this.active_ch].steps = Math.max(1, Math.min(16, parseInt(val)));
+        this.recomputePatterns();
+      }
+    } else if (name === 'pulses') {
+      if (this.tracks[this.active_ch]) {
+        this.tracks[this.active_ch].pulses = Math.max(0, Math.min(16, parseInt(val)));
+        this.recomputePatterns();
+      }
+    } else if (name === 'offset') {
+      if (this.tracks[this.active_ch]) {
+        this.tracks[this.active_ch].offset = Math.max(0, Math.min(15, parseInt(val)));
+        this.recomputePatterns();
+      }
+    } else if (name === 'gate_len') {
+      this.gate_len = Math.max(10, Math.min(120, parseFloat(val)));
+    } else if (name === 'run') {
+      this.run = val;
+      this.isRunning = (val === 'running');
+      if (this.isRunning) this.runClock();
+      else clearTimeout(this.timer);
+    }
+  }
+
+  getJackOutputNode(jack) {
+    if (this.trigNodes[jack]) return this.trigNodes[jack];
+    return this.trigNodes.trig1;
+  }
+
+  getJackInputNode(jack) {
+    if (jack === 'reset') return this.resetInputNode;
+    return this.clockInputNode;
+  }
+
+  dispose() {
+    this.isRunning = false;
+    clearTimeout(this.timer);
+    try {
+      for (const n of Object.values(this.trigNodes)) n.disconnect();
+      this.clockInputNode.disconnect();
+      this.resetInputNode.disconnect();
+    } catch (e) {}
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 48. Stochastic Random CV Generator Module (Marbles / Deja-Vu Random Voltages)
+// ---------------------------------------------------------------------------
+class StochasticVaultModule {
+  constructor(ctx, id, params = {}) {
+    this.ctx = ctx;
+    this.id = id;
+    this.type = 'stochastic_vault';
+
+    this.rate = params.rate !== undefined ? parseFloat(params.rate) : 4.0;
+    this.deja_vu = params.deja_vu !== undefined ? parseFloat(params.deja_vu) : 0.75;
+    this.length = params.length !== undefined ? parseInt(params.length) : 16;
+    this.spread = params.spread !== undefined ? parseFloat(params.spread) : 1.5;
+    this.scale = params.scale || 'dorian';
+    this.root = params.root || 'A';
+    this.jitter = params.jitter !== undefined ? parseFloat(params.jitter) : 0.15;
+
+    this.pitchNode = ctx.createConstantSource();
+    this.pitchNode.offset.setValueAtTime(55, ctx.currentTime);
+    this.pitchNode.start();
+
+    this.gate1Node = ctx.createGain();
+    this.gate2Node = ctx.createGain();
+    this.smoothCvGain = ctx.createGain();
+    this.smoothCvGain.gain.setValueAtTime(1.0, ctx.currentTime);
+
+    this.clockInputNode = ctx.createGain();
+    this.freezeNode = ctx.createGain();
+
+    this.memory = new Array(32).fill(0).map(() => Math.random());
+    this.history = [];
+    this.stepCount = 0;
+    this.isRunning = true;
+    this.onVoltageUpdate = null;
+
+    this.runTick();
+  }
+
+  getScaleIntervals(scale) {
+    const scales = {
+      pentatonic: [0, 3, 5, 7, 10],
+      dorian: [0, 2, 3, 5, 7, 9, 10],
+      phrygian: [0, 1, 3, 5, 7, 8, 10],
+      hirajoshi: [0, 2, 3, 7, 8],
+      minor: [0, 2, 3, 5, 7, 8, 10],
+      major: [0, 2, 4, 5, 7, 9, 11],
+      chromatic: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+    };
+    return scales[scale] || scales.dorian;
+  }
+
+  getRootOffset(root) {
+    const roots = { 'C': 0, 'C#': 1, 'D': 2, 'D#': 3, 'E': 4, 'F': 5, 'F#': 6, 'G': 7, 'G#': 8, 'A': 9, 'A#': 10, 'B': 11 };
+    return roots[root] !== undefined ? roots[root] : 9;
+  }
+
+  runTick() {
+    if (!this.isRunning) return;
+    const now = this.ctx.currentTime;
+    const len = Math.max(4, Math.min(32, this.length));
+
+    const memIdx = this.stepCount % len;
+    let rawVal;
+    if (Math.random() < this.deja_vu) {
+      rawVal = this.memory[memIdx];
+    } else {
+      rawVal = Math.random();
+      this.memory[memIdx] = rawVal;
+    }
+
+    const intervals = this.getScaleIntervals(this.scale);
+    const rootOffset = this.getRootOffset(this.root);
+    const octaveSpan = Math.max(0.5, this.spread);
+    const totalSemitones = Math.floor(octaveSpan * 12);
+    const targetSemitone = Math.floor(rawVal * totalSemitones);
+
+    const oct = Math.floor(targetSemitone / 12);
+    const semiInOct = targetSemitone % 12;
+    let closestDegree = intervals[0];
+    let minDiff = 99;
+    for (const d of intervals) {
+      const diff = Math.abs(d - semiInOct);
+      if (diff < minDiff) {
+        minDiff = diff;
+        closestDegree = d;
+      }
+    }
+
+    const midiNote = 33 + rootOffset + oct * 12 + closestDegree;
+    const freqHz = 440 * Math.pow(2, (midiNote - 69) / 12);
+    const volts = (midiNote - 33) / 12;
+
+    this.pitchNode.offset.setTargetAtTime(freqHz, now, 0.005);
+    this.smoothCvGain.gain.setTargetAtTime(volts, now, 0.04);
+
+    this.emitGatePulse(this.gate1Node, now);
+    if (Math.random() < 0.5) {
+      this.emitGatePulse(this.gate2Node, now);
+    }
+
+    const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+    const noteName = `${noteNames[midiNote % 12]}${Math.floor(midiNote / 12) - 1}`;
+
+    this.history.push(rawVal);
+    if (this.history.length > 20) this.history.shift();
+
+    if (this.onVoltageUpdate) {
+      this.onVoltageUpdate({ noteName, freqHz, volts, gate1: true, gate2: false, history: this.history });
+    }
+
+    this.stepCount++;
+    const jitterOffset = (Math.random() * 2 - 1) * this.jitter * 0.2;
+    const intervalMs = Math.max(20, Math.floor((1000 / this.rate) * (1.0 + jitterOffset)));
+    this.timer = setTimeout(() => this.runTick(), intervalMs);
+  }
+
+  emitGatePulse(node, now) {
+    try {
+      const osc = this.ctx.createOscillator();
+      const env = this.ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(300, now);
+      osc.frequency.exponentialRampToValueAtTime(60, now + 0.01);
+      env.gain.setValueAtTime(0.8, now);
+      env.gain.exponentialRampToValueAtTime(0.001, now + 0.02);
+      osc.connect(env);
+      env.connect(node);
+      osc.start(now);
+      osc.stop(now + 0.025);
+    } catch (e) {}
+  }
+
+  resetClock(now = null) {
+    clearTimeout(this.timer);
+    this.stepCount = 0;
+    this.runTick();
+  }
+
+  setParam(name, val) {
+    if (name === 'rate') this.rate = Math.max(0.5, Math.min(25, parseFloat(val)));
+    else if (name === 'deja_vu') this.deja_vu = Math.max(0, Math.min(1.0, parseFloat(val)));
+    else if (name === 'length') this.length = Math.max(4, Math.min(32, parseInt(val)));
+    else if (name === 'spread') this.spread = Math.max(0.5, Math.min(3.0, parseFloat(val)));
+    else if (name === 'scale') this.scale = val;
+    else if (name === 'root') this.root = val;
+    else if (name === 'jitter') this.jitter = Math.max(0, Math.min(1.0, parseFloat(val)));
+  }
+
+  getJackOutputNode(jack) {
+    if (jack === 'gate1') return this.gate1Node;
+    if (jack === 'gate2') return this.gate2Node;
+    if (jack === 'smooth_cv') return this.smoothCvGain;
+    return this.pitchNode;
+  }
+
+  getJackInputNode(jack) {
+    if (jack === 'freeze') return this.freezeNode;
+    return this.clockInputNode;
+  }
+
+  dispose() {
+    this.isRunning = false;
+    clearTimeout(this.timer);
+    try {
+      this.pitchNode.stop();
+      this.pitchNode.disconnect();
+      this.gate1Node.disconnect();
+      this.gate2Node.disconnect();
+      this.smoothCvGain.disconnect();
+      this.clockInputNode.disconnect();
+      this.freezeNode.disconnect();
+    } catch (e) {}
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 49. Dual Morphing Wavetable Oscillator Module
+// ---------------------------------------------------------------------------
+class DualWavetableModule {
+  constructor(ctx, id, params = {}) {
+    this.ctx = ctx;
+    this.id = id;
+    this.type = 'wavetable_dual';
+
+    this.freq1 = params.freq1 !== undefined ? parseFloat(params.freq1) : 65.41;
+    this.freq2 = params.freq2 !== undefined ? parseFloat(params.freq2) : 130.81;
+    this.detune = params.detune !== undefined ? parseFloat(params.detune) : 7;
+    this.table1 = params.table1 || 'ppg_bell';
+    this.table2 = params.table2 || 'vocal_formant';
+    this.morph = params.morph !== undefined ? parseFloat(params.morph) : 0.35;
+    this.cross_fm = params.cross_fm !== undefined ? parseFloat(params.cross_fm) : 0.25;
+    this.sub_level = params.sub_level !== undefined ? parseFloat(params.sub_level) : 0.45;
+    this.spread = params.spread !== undefined ? parseFloat(params.spread) : 0.5;
+
+    this.outGain = ctx.createGain();
+    this.outGain.gain.setValueAtTime(0.85, ctx.currentTime);
+
+    this.osc1Gain = ctx.createGain();
+    this.osc2Gain = ctx.createGain();
+    this.subGain = ctx.createGain();
+    this.fmGain = ctx.createGain();
+
+    this.scanCvNode = ctx.createGain();
+    this.fmInNode = ctx.createGain();
+
+    this.osc1 = ctx.createOscillator();
+    this.osc2 = ctx.createOscillator();
+    this.subOsc = ctx.createOscillator();
+
+    this.updateFrequencies();
+    this.updateWavetables();
+
+    this.fmGain.gain.setValueAtTime(this.cross_fm * 200, ctx.currentTime);
+    this.subGain.gain.setValueAtTime(this.sub_level * 0.7, ctx.currentTime);
+    this.osc1Gain.gain.setValueAtTime(0.6, ctx.currentTime);
+    this.osc2Gain.gain.setValueAtTime(0.5, ctx.currentTime);
+
+    this.osc2.connect(this.fmGain);
+    this.fmGain.connect(this.osc1.frequency);
+
+    this.osc1.connect(this.osc1Gain);
+    this.osc2.connect(this.osc2Gain);
+    this.subOsc.connect(this.subGain);
+
+    this.osc1Gain.connect(this.outGain);
+    this.osc2Gain.connect(this.outGain);
+    this.subGain.connect(this.outGain);
+
+    this.osc1.start();
+    this.osc2.start();
+    this.subOsc.start();
+
+    this.onMorphUpdate = null;
+  }
+
+  getHarmonics(table) {
+    if (table === 'ppg_bell') {
+      return [0, 1.0, 0.4, 0.7, 0.2, 0.5, 0.1, 0.6, 0.15, 0.4];
+    } else if (table === 'vocal_formant') {
+      return [0, 1.0, 0.8, 0.1, 0.7, 0.05, 0.6, 0.02, 0.3];
+    } else if (table === 'metallic') {
+      return [0, 0.8, 0.2, 0.7, 0.1, 0.9, 0.05, 0.6, 0.15, 0.5, 0.2];
+    } else if (table === 'harsh_saw') {
+      return [0, 1.0, 0.7, 0.5, 0.4, 0.35, 0.3, 0.28, 0.25, 0.22, 0.2, 0.18];
+    } else {
+      return [0, 1.0, 0.1, 0.9, 0.05, 0.8, 0.02, 0.7, 0.01, 0.5];
+    }
+  }
+
+  updateWavetables() {
+    const h1 = this.getHarmonics(this.table1);
+    const h2 = this.getHarmonics(this.table2);
+    const maxLen = Math.max(h1.length, h2.length);
+
+    const real = new Float32Array(maxLen);
+    const imag = new Float32Array(maxLen);
+
+    for (let i = 1; i < maxLen; i++) {
+      const v1 = h1[i] || 0;
+      const v2 = h2[i] || 0;
+      imag[i] = (1 - this.morph) * v1 + this.morph * v2;
+    }
+
+    try {
+      const wave = this.ctx.createPeriodicWave(real, imag, { disableNormalization: false });
+      this.osc1.setPeriodicWave(wave);
+      this.osc2.setPeriodicWave(wave);
+    } catch (e) {}
+  }
+
+  updateFrequencies() {
+    const now = this.ctx.currentTime;
+    this.osc1.frequency.setTargetAtTime(this.freq1, now, 0.02);
+    this.osc2.frequency.setTargetAtTime(this.freq2, now, 0.02);
+    this.osc2.detune.setTargetAtTime(this.detune, now, 0.02);
+    this.subOsc.frequency.setTargetAtTime(this.freq1 / 2, now, 0.02);
+  }
+
+  setParam(name, val) {
+    const now = this.ctx.currentTime;
+    if (name === 'freq1') {
+      this.freq1 = Math.max(20, Math.min(1200, parseFloat(val)));
+      this.updateFrequencies();
+    } else if (name === 'freq2') {
+      this.freq2 = Math.max(20, Math.min(1200, parseFloat(val)));
+      this.updateFrequencies();
+    } else if (name === 'detune') {
+      this.detune = Math.max(-100, Math.min(100, parseFloat(val)));
+      this.osc2.detune.setTargetAtTime(this.detune, now, 0.02);
+    } else if (name === 'table1') {
+      this.table1 = val;
+      this.updateWavetables();
+    } else if (name === 'table2') {
+      this.table2 = val;
+      this.updateWavetables();
+    } else if (name === 'morph') {
+      this.morph = Math.max(0, Math.min(1.0, parseFloat(val)));
+      this.updateWavetables();
+      if (this.onMorphUpdate) this.onMorphUpdate();
+    } else if (name === 'cross_fm') {
+      this.cross_fm = Math.max(0, Math.min(1.0, parseFloat(val)));
+      this.fmGain.gain.setTargetAtTime(this.cross_fm * 200, now, 0.02);
+    } else if (name === 'sub_level') {
+      this.sub_level = Math.max(0, Math.min(1.0, parseFloat(val)));
+      this.subGain.gain.setTargetAtTime(this.sub_level * 0.7, now, 0.02);
+    } else if (name === 'spread') {
+      this.spread = Math.max(0, Math.min(1.0, parseFloat(val)));
+    }
+  }
+
+  getJackOutputNode(jack) {
+    return this.outGain;
+  }
+
+  getJackInputNode(jack) {
+    if (jack === 'scan_cv') return this.scanCvNode;
+    return this.fmInNode;
+  }
+
+  dispose() {
+    try {
+      this.osc1.stop();
+      this.osc2.stop();
+      this.subOsc.stop();
+      this.osc1.disconnect();
+      this.osc2.disconnect();
+      this.subOsc.disconnect();
+      this.fmGain.disconnect();
+      this.osc1Gain.disconnect();
+      this.osc2Gain.disconnect();
+      this.subGain.disconnect();
+      this.outGain.disconnect();
+      this.scanCvNode.disconnect();
+      this.fmInNode.disconnect();
+    } catch (e) {}
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 50. Sidechain Ducking VCA Module
+// ---------------------------------------------------------------------------
+class SidechainVcaModule {
+  constructor(ctx, id, params = {}) {
+    this.ctx = ctx;
+    this.id = id;
+    this.type = 'sidechain_vca';
+
+    this.ducking = params.ducking !== undefined ? parseFloat(params.ducking) : 0.8;
+    this.threshold = params.threshold !== undefined ? parseFloat(params.threshold) : -12.0;
+    this.attack = (params.attack !== undefined ? parseFloat(params.attack) : 2.0) / 1000;
+    this.release = (params.release !== undefined ? parseFloat(params.release) : 180.0) / 1000;
+    this.mode = params.mode || 'audio_peak';
+
+    this.inputNode = ctx.createGain();
+    this.vcaGain = ctx.createGain();
+    this.vcaGain.gain.setValueAtTime(1.0, ctx.currentTime);
+    this.outGain = ctx.createGain();
+
+    this.sidechainNode = ctx.createGain();
+    this.analyser = ctx.createAnalyser();
+    this.analyser.fftSize = 256;
+    this.sidechainNode.connect(this.analyser);
+
+    // CV output for envelope follower
+    this.envOutNode = ctx.createGain();
+    this.envOutNode.gain.setValueAtTime(0.0, ctx.currentTime);
+
+    this.inputNode.connect(this.vcaGain);
+    this.vcaGain.connect(this.outGain);
+
+    this.onReduction = null;
+    this.currentReductionDb = 0;
+    this.isRunning = true;
+    this.dataArray = new Uint8Array(this.analyser.frequencyBinCount);
+
+    this.runDetector();
+  }
+
+  triggerSidechainPulse(now = null) {
+    if (!this.ctx) return;
+    const t = now || this.ctx.currentTime;
+    const minGain = Math.max(0.01, 1.0 - this.ducking);
+    this.vcaGain.gain.cancelScheduledValues(t);
+    this.vcaGain.gain.setValueAtTime(this.vcaGain.gain.value, t);
+    this.vcaGain.gain.linearRampToValueAtTime(minGain, t + this.attack);
+    this.vcaGain.gain.setTargetAtTime(1.0, t + this.attack, this.release);
+
+    const dbRed = 20 * Math.log10(minGain);
+    this.currentReductionDb = dbRed;
+    if (this.onReduction) this.onReduction(minGain, dbRed);
+  }
+
+  runDetector() {
+    if (!this.isRunning) return;
+    if (this.mode === 'audio_peak' && this.ctx && this.ctx.state === 'running') {
+      this.analyser.getByteTimeDomainData(this.dataArray);
+      let peak = 0;
+      for (let i = 0; i < this.dataArray.length; i++) {
+        const v = Math.abs((this.dataArray[i] - 128) / 128);
+        if (v > peak) peak = v;
+      }
+      const peakDb = peak > 0.0001 ? 20 * Math.log10(peak) : -60;
+      if (peakDb > this.threshold) {
+        const excess = Math.min(24, peakDb - this.threshold);
+        const duckFactor = Math.min(1.0, (excess / 16) * this.ducking);
+        const targetGain = Math.max(0.02, 1.0 - duckFactor);
+        const now = this.ctx.currentTime;
+        this.vcaGain.gain.setTargetAtTime(targetGain, now, this.attack);
+        this.vcaGain.gain.setTargetAtTime(1.0, now + this.attack, this.release);
+
+        const dbRed = 20 * Math.log10(targetGain);
+        this.currentReductionDb = dbRed;
+        if (this.onReduction) this.onReduction(targetGain, dbRed);
+      } else {
+        if (Math.abs(this.currentReductionDb) > 0.2) {
+          this.currentReductionDb *= 0.85;
+          if (this.onReduction) this.onReduction(this.vcaGain.gain.value, this.currentReductionDb);
+        }
+      }
+    }
+    this.raf = requestAnimationFrame(() => this.runDetector());
+  }
+
+  onConnectJack(jack, fromMod, fromJack) {
+    if (jack === 'sidechain') {
+      if (typeof fromMod.onConnectOutputJack === 'function') {
+        fromMod.onConnectOutputJack(fromJack, this, jack);
+      }
+    }
+  }
+
+  triggerHit(now = null) {
+    this.triggerSidechainPulse(now);
+  }
+
+  setParam(name, val) {
+    if (name === 'ducking') {
+      this.ducking = Math.max(0, Math.min(1.0, parseFloat(val)));
+    } else if (name === 'threshold') {
+      this.threshold = Math.max(-40, Math.min(0, parseFloat(val)));
+    } else if (name === 'attack') {
+      this.attack = Math.max(0.5, Math.min(50, parseFloat(val))) / 1000;
+    } else if (name === 'release') {
+      this.release = Math.max(20, Math.min(800, parseFloat(val))) / 1000;
+    } else if (name === 'mode') {
+      this.mode = val;
+    }
+  }
+
+  getJackOutputNode(jack) {
+    if (jack === 'env_out') return this.envOutNode;
+    return this.outGain;
+  }
+
+  getJackInputNode(jack) {
+    if (jack === 'sidechain') return this.sidechainNode;
+    return this.inputNode;
+  }
+
+  dispose() {
+    this.isRunning = false;
+    if (this.raf) cancelAnimationFrame(this.raf);
+    try {
+      this.inputNode.disconnect();
+      this.vcaGain.disconnect();
+      this.outGain.disconnect();
+      this.sidechainNode.disconnect();
+      this.analyser.disconnect();
+      this.envOutNode.disconnect();
+    } catch (e) {}
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 51. 16-Step TR Drum Matrix Sequencer Module
+// ---------------------------------------------------------------------------
+class TrMatrixSeqModule {
+  constructor(ctx, id, params = {}) {
+    this.ctx = ctx;
+    this.id = id;
+    this.type = 'tr_matrix_seq';
+
+    this.bpm = params.bpm || 128;
+    this.swing = params.swing !== undefined ? parseFloat(params.swing) : 15;
+    this.accent = params.accent !== undefined ? parseFloat(params.accent) : 0.6;
+    this.steps = params.steps !== undefined ? parseInt(params.steps) : 16;
+    this.run = params.run || 'running';
+    this.isRunning = (this.run === 'running');
+
+    this.currentStep = 0;
+    this.patterns = {
+      bd: [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0],
+      sd: [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0],
+      ch: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+      oh: [0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0],
+    };
+
+    this.clockInputNode = ctx.createGain();
+    this.resetInputNode = ctx.createGain();
+
+    this.trigNodes = {
+      trig_bd: ctx.createGain(),
+      trig_sd: ctx.createGain(),
+      trig_ch: ctx.createGain(),
+      trig_oh: ctx.createGain(),
+      accent_out: ctx.createGain(),
+    };
+
+    for (const node of Object.values(this.trigNodes)) {
+      node.gain.setValueAtTime(0.0, ctx.currentTime);
+      const clickOsc = ctx.createOscillator();
+      clickOsc.type = 'triangle';
+      clickOsc.frequency.setValueAtTime(800, ctx.currentTime);
+      clickOsc.connect(node);
+      try { clickOsc.start(); } catch (e) {}
+    }
+
+    this.connectedTargets = {
+      trig_bd: new Set(),
+      trig_sd: new Set(),
+      trig_ch: new Set(),
+      trig_oh: new Set(),
+      accent_out: new Set(),
+    };
+
+    this.onStep = null;
+    this.runClock();
+  }
+
+  onConnectOutputJack(fromJack, toMod, toJack) {
+    if (this.connectedTargets[fromJack]) {
+      this.connectedTargets[fromJack].add({ mod: toMod, jack: toJack });
+    }
+  }
+
+  onDisconnectOutputJack(fromJack, toMod, toJack) {
+    if (this.connectedTargets[fromJack]) {
+      for (const target of this.connectedTargets[fromJack]) {
+        if (target.mod === toMod && target.jack === toJack) {
+          this.connectedTargets[fromJack].delete(target);
+          break;
+        }
+      }
+    }
+  }
+
+  toggleStep(track, step) {
+    const trk = track.toLowerCase();
+    if (!this.patterns[trk]) return 0;
+    const curr = this.patterns[trk][step] || 0;
+    const next = curr === 1 ? 0 : 1;
+    this.patterns[trk][step] = next;
+    return next;
+  }
+
+  clearPattern() {
+    for (const trk of Object.keys(this.patterns)) {
+      this.patterns[trk] = new Array(16).fill(0);
+    }
+  }
+
+  randomizePattern() {
+    const bd = [1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0];
+    if (Math.random() < 0.5) bd[10] = 1;
+    if (Math.random() < 0.3) bd[14] = 1;
+    const sd = [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0];
+    if (Math.random() < 0.4) sd[15] = 1;
+    const ch = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1];
+    const oh = [0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0];
+    this.patterns = { bd, sd, ch, oh };
+  }
+
+  runClock() {
+    if (!this.isRunning) return;
+    const now = this.ctx.currentTime;
+    const s = this.currentStep;
+
+    const hitBd = this.patterns.bd && this.patterns.bd[s] === 1;
+    const hitSd = this.patterns.sd && this.patterns.sd[s] === 1;
+    const hitCh = this.patterns.ch && this.patterns.ch[s] === 1;
+    const hitOh = this.patterns.oh && this.patterns.oh[s] === 1;
+    const isAccented = (s === 0 || s === 4 || s === 8 || s === 12);
+
+    if (hitBd) this.dispatchTrigger('trig_bd', now);
+    if (hitSd) this.dispatchTrigger('trig_sd', now);
+    if (hitCh) this.dispatchTrigger('trig_ch', now);
+    if (hitOh) this.dispatchTrigger('trig_oh', now);
+    if (isAccented) this.dispatchTrigger('accent_out', now);
+
+    if (this.onStep) this.onStep(s);
+
+    const baseInterval = (60000 / this.bpm) / 4;
+    let interval = baseInterval;
+    if (s % 2 === 1) {
+      const swingDelay = (this.swing / 100) * (baseInterval * 0.4);
+      interval = baseInterval - swingDelay;
+    } else {
+      const swingDelay = (this.swing / 100) * (baseInterval * 0.4);
+      interval = baseInterval + swingDelay;
+    }
+
+    this.currentStep = (this.currentStep + 1) % this.steps;
+    this.timer = setTimeout(() => this.runClock(), Math.max(10, interval));
+  }
+
+  dispatchTrigger(jack, now) {
+    const node = this.trigNodes[jack];
+    if (node) {
+      try {
+        node.gain.cancelScheduledValues(now);
+        node.gain.setValueAtTime(1.0, now);
+        node.gain.setValueAtTime(0.0, now + 0.015);
+      } catch (e) {}
+    }
+    const targets = this.connectedTargets[jack];
+    if (targets) {
+      for (const t of targets) {
+        if (typeof t.mod.triggerHit === 'function') {
+          t.mod.triggerHit(now);
+        } else if (typeof t.mod.stepSlice === 'function') {
+          t.mod.stepSlice();
+        } else if (typeof t.mod.triggerSidechainPulse === 'function') {
+          t.mod.triggerSidechainPulse(now);
+        }
+      }
+    }
+  }
+
+  resetClock(now = null) {
+    clearTimeout(this.timer);
+    this.currentStep = 0;
+    this.runClock();
+  }
+
+  setParam(name, val) {
+    if (name === 'bpm') {
+      this.bpm = Math.max(30, Math.min(240, Math.round(val)));
+    } else if (name === 'swing') {
+      this.swing = Math.max(0, Math.min(75, parseFloat(val)));
+    } else if (name === 'accent') {
+      this.accent = Math.max(0, Math.min(1.0, parseFloat(val)));
+    } else if (name === 'steps') {
+      this.steps = Math.max(1, Math.min(16, parseInt(val)));
+    } else if (name === 'run') {
+      this.run = val;
+      this.isRunning = (val === 'running');
+      if (this.isRunning) this.runClock();
+      else clearTimeout(this.timer);
+    }
+  }
+
+  getJackOutputNode(jack) {
+    return this.trigNodes[jack] || this.trigNodes.trig_bd;
+  }
+
+  getJackInputNode(jack) {
+    if (jack === 'reset') return this.resetInputNode;
+    return this.clockInputNode;
+  }
+
+  dispose() {
+    this.isRunning = false;
+    clearTimeout(this.timer);
+    try {
+      this.clockInputNode.disconnect();
+      this.resetInputNode.disconnect();
+      for (const node of Object.values(this.trigNodes)) {
+        node.disconnect();
+      }
     } catch (e) {}
   }
 }

@@ -687,6 +687,158 @@ const MODULE_DEFINITIONS = {
       { id: 'ratio', label: 'BPM SNAP RATIO', type: 'select', options: ['free', '1x_full', '1/2_half', '1/4_quarter', '1/8_8th', '1/16_16th', '2x_double'], default: 'free' },
     ],
   },
+  sample_player: {
+    name: 'OPEN SAMPLE DRUM',
+    category: 'Percussion',
+    styleClass: 'panel-style-roland',
+    knobType: 'knob-sifam',
+    width: 260,
+    desc: 'Multi-kit vintage beatbox sampler (TR-909, TR-707, LinnDrum, DMX, CR-78) with 12-bit SP-1200 crunch, pitch/decay/chops, and drag-and-drop .wav support.',
+    inputs: ['trig', 'cv_pitch', 'in'],
+    outputs: ['out', 'eoc'],
+    controls: [
+      { id: 'kit', label: 'KIT', type: 'select', options: ['tr909', 'tr707', 'linndrum', 'dmx', 'cr78', 'custom'], default: 'tr909' },
+      { id: 'voice', label: 'VOICE', type: 'select', options: ['kick', 'snare', 'hihat', 'clap', 'perc'], default: 'kick' },
+      { id: 'pitch', label: 'PITCH', type: 'knob', min: -24, max: 24, default: 0, unit: 'st', step: 1 },
+      { id: 'decay', label: 'DECAY', type: 'knob', min: 0.02, max: 2.5, default: 0.45, unit: 's', step: 0.01 },
+      { id: 'start', label: 'START', type: 'knob', min: 0, max: 100, default: 0, unit: '%', step: 1 },
+      { id: 'crunch', label: 'SP CRUNCH', type: 'knob', min: 0, max: 1.0, default: 0.25, unit: '', step: 0.01 },
+      { id: 'cutoff', label: 'FILTER', type: 'knob', min: 200, max: 14000, default: 12000, unit: 'Hz', step: 50, log: true },
+      { id: 'level', label: 'LEVEL', type: 'knob', min: 0, max: 1.5, default: 1.0, unit: '', step: 0.01 },
+    ],
+  },
+  macro_percussion: {
+    name: 'MACRO DRUM SYNTH',
+    category: 'Percussion',
+    styleClass: 'panel-style-makenois',
+    knobType: 'knob-davies',
+    width: 220,
+    desc: 'West-Coast procedural percussion synthesizer (Mutable Plaits / Basimilus style) with FM bass drums, metallic folded hats, snaps, and zaps.',
+    inputs: ['trig', 'cv_morph', 'cv_pitch'],
+    outputs: ['out'],
+    controls: [
+      { id: 'model', label: 'MODEL', type: 'select', options: ['bass_drum', 'snare_drum', 'metallic_hat', 'burst_clap', 'fm_zap', 'wooden_rim'], default: 'bass_drum' },
+      { id: 'pitch', label: 'PITCH', type: 'knob', min: 20, max: 500, default: 55, unit: 'Hz', step: 1 },
+      { id: 'decay', label: 'DECAY', type: 'knob', min: 0.05, max: 2.0, default: 0.35, unit: 's', step: 0.01 },
+      { id: 'harmonics', label: 'HARMONICS', type: 'knob', min: 0, max: 1.0, default: 0.4, unit: '', step: 0.01 },
+      { id: 'morph', label: 'MORPH', type: 'knob', min: 0, max: 1.0, default: 0.3, unit: '', step: 0.01 },
+      { id: 'fold', label: 'FOLD', type: 'knob', min: 0, max: 1.0, default: 0.2, unit: '', step: 0.01 },
+      { id: 'accent', label: 'ACCENT', type: 'knob', min: 0, max: 1.0, default: 0.75, unit: '', step: 0.01 },
+    ],
+  },
+  amen_slicer: {
+    name: 'AMEN BREAK SLICER',
+    category: 'Percussion',
+    styleClass: 'panel-style-fr4',
+    knobType: 'knob-davies',
+    width: 260,
+    desc: '16-step transient chopper and breakbeat glitch slicer with master BPM sync, jungle stutter, reverse playback, and filter sweeps.',
+    inputs: ['trig', 'slice_cv', 'in'],
+    outputs: ['out', 'slice_gate'],
+    controls: [
+      { id: 'bpm', label: 'BPM', type: 'knob', min: 60, max: 220, default: 165, unit: 'bpm', step: 1 },
+      { id: 'break', label: 'BREAK', type: 'select', options: ['amen_classic', 'funky_drummer', 'soul_pride', 'custom'], default: 'amen_classic' },
+      { id: 'mode', label: 'MODE', type: 'select', options: ['sequential', 'glitch_random', 'jungle_stutter', 'half_time', 'reverse_funk'], default: 'sequential' },
+      { id: 'slice', label: 'SLICE', type: 'knob', min: 1, max: 16, default: 1, unit: '', step: 1 },
+      { id: 'stutter', label: 'STUTTER', type: 'knob', min: 0, max: 1.0, default: 0.2, unit: '', step: 0.01 },
+      { id: 'reverse', label: 'REVERSE', type: 'knob', min: 0, max: 1.0, default: 0.15, unit: '', step: 0.01 },
+      { id: 'pitch', label: 'PITCH', type: 'knob', min: -12, max: 12, default: 0, unit: 'st', step: 1 },
+      { id: 'filter', label: 'FILTER', type: 'knob', min: 200, max: 12000, default: 10000, unit: 'Hz', step: 50, log: true },
+    ],
+  },
+  quad_euclid: {
+    name: 'EUCLIDEAN POLY-RHYTHM',
+    category: 'Utility',
+    styleClass: 'panel-style-digital',
+    knobType: 'knob-trimpot',
+    width: 260,
+    desc: '4-channel Bjorklund Euclidean poly-rhythm trigger sequencer with independent steps, pulses, and rotation offsets.',
+    inputs: ['clock_in', 'reset'],
+    outputs: ['trig1', 'trig2', 'trig3', 'trig4'],
+    controls: [
+      { id: 'bpm', label: 'BPM', type: 'knob', min: 40, max: 240, default: 125, unit: 'bpm', step: 1 },
+      { id: 'active_ch', label: 'TRACK', type: 'select', options: ['ch1', 'ch2', 'ch3', 'ch4'], default: 'ch1' },
+      { id: 'steps', label: 'STEPS', type: 'knob', min: 1, max: 16, default: 16, unit: '', step: 1 },
+      { id: 'pulses', label: 'PULSES', type: 'knob', min: 0, max: 16, default: 4, unit: '', step: 1 },
+      { id: 'offset', label: 'OFFSET', type: 'knob', min: 0, max: 15, default: 0, unit: '', step: 1 },
+      { id: 'gate_len', label: 'GATE LEN', type: 'knob', min: 10, max: 120, default: 30, unit: 'ms', step: 5 },
+      { id: 'run', label: 'RUN', type: 'select', options: ['running', 'paused'], default: 'running' },
+    ],
+  },
+  stochastic_vault: {
+    name: 'STOCHASTIC RANDOM CV',
+    category: 'Source',
+    styleClass: 'panel-style-makenois',
+    knobType: 'knob-davies',
+    width: 230,
+    desc: 'Stochastic random voltage generator producing scale-quantized melodies, rhythmic gate clusters, and Deja-Vu looping memory.',
+    inputs: ['clock_in', 'freeze'],
+    outputs: ['cv_out', 'gate1', 'gate2', 'smooth_cv'],
+    controls: [
+      { id: 'rate', label: 'RATE', type: 'knob', min: 0.5, max: 25, default: 4.0, unit: 'Hz', step: 0.2 },
+      { id: 'deja_vu', label: 'DEJA VU', type: 'knob', min: 0, max: 1.0, default: 0.75, unit: '', step: 0.01 },
+      { id: 'length', label: 'LENGTH', type: 'knob', min: 4, max: 32, default: 16, unit: '', step: 1 },
+      { id: 'spread', label: 'SPREAD', type: 'knob', min: 0.5, max: 3.0, default: 1.5, unit: 'oct', step: 0.1 },
+      { id: 'scale', label: 'SCALE', type: 'select', options: ['pentatonic', 'dorian', 'phrygian', 'hirajoshi', 'minor', 'major', 'chromatic'], default: 'dorian' },
+      { id: 'root', label: 'ROOT', type: 'select', options: ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'], default: 'A' },
+      { id: 'jitter', label: 'JITTER', type: 'knob', min: 0, max: 1.0, default: 0.15, unit: '', step: 0.01 },
+    ],
+  },
+  wavetable_dual: {
+    name: 'DUAL MORPHING WAVETABLE',
+    category: 'Source',
+    styleClass: 'panel-style-digital',
+    knobType: 'knob-trimpot',
+    width: 240,
+    desc: 'Dual morphing wavetable oscillator with cross-FM, sub-bass, and continuous spectrum scanning (PPG Bell, Vocal Formant, Metal, Harsh Digital).',
+    inputs: ['scan_cv', 'fm_in'],
+    outputs: ['out'],
+    controls: [
+      { id: 'freq1', label: 'OSC 1', type: 'knob', min: 25, max: 600, default: 65.41, unit: 'Hz', step: 0.5 },
+      { id: 'freq2', label: 'OSC 2', type: 'knob', min: 25, max: 600, default: 130.81, unit: 'Hz', step: 0.5 },
+      { id: 'detune', label: 'DETUNE', type: 'knob', min: -50, max: 50, default: 7, unit: 'ct', step: 1 },
+      { id: 'table1', label: 'TABLE 1', type: 'select', options: ['ppg_bell', 'vocal_formant', 'metallic', 'harsh_saw', 'organ_glass'], default: 'ppg_bell' },
+      { id: 'table2', label: 'TABLE 2', type: 'select', options: ['vocal_formant', 'metallic', 'harsh_saw', 'organ_glass', 'ppg_bell'], default: 'vocal_formant' },
+      { id: 'morph', label: 'SCAN', type: 'knob', min: 0, max: 1.0, default: 0.35, unit: '', step: 0.01 },
+      { id: 'cross_fm', label: 'CROSS FM', type: 'knob', min: 0, max: 1.0, default: 0.25, unit: '', step: 0.01 },
+      { id: 'sub_level', label: 'SUB BASS', type: 'knob', min: 0, max: 1.0, default: 0.45, unit: '', step: 0.01 },
+      { id: 'spread', label: 'SPREAD', type: 'knob', min: 0, max: 1.0, default: 0.5, unit: '', step: 0.01 },
+    ],
+  },
+  sidechain_vca: {
+    name: 'SIDECHAIN DUCKING VCA',
+    category: 'Dynamics',
+    styleClass: 'panel-style-euro',
+    knobType: 'knob-sifam',
+    width: 200,
+    desc: 'Dynamic sidechain ducker and envelope follower. Attenuates audio when kicks or trigger pulses arrive to keep low-end punch clear.',
+    inputs: ['in', 'sidechain'],
+    outputs: ['out', 'env_out'],
+    controls: [
+      { id: 'ducking', label: 'DUCKING', type: 'knob', min: 0, max: 1.0, default: 0.8, unit: '', step: 0.01 },
+      { id: 'threshold', label: 'THRESH', type: 'knob', min: -36, max: 0, default: -12, unit: 'dB', step: 0.5 },
+      { id: 'attack', label: 'ATTACK', type: 'knob', min: 0.5, max: 50, default: 2.0, unit: 'ms', step: 0.5 },
+      { id: 'release', label: 'RELEASE', type: 'knob', min: 20, max: 800, default: 180, unit: 'ms', step: 5 },
+      { id: 'mode', label: 'DETECTOR', type: 'select', options: ['audio_peak', 'trigger_pulse'], default: 'audio_peak' },
+    ],
+  },
+  tr_matrix_seq: {
+    name: '16-STEP DRUM MATRIX',
+    category: 'Percussion',
+    styleClass: 'panel-style-roland',
+    knobType: 'knob-sifam',
+    width: 330,
+    desc: 'Classic 16-step 4-track TR-style clickable drum grid sequencer (BD, SD, CH, OH) with swing, accent, and direct trigger outs.',
+    inputs: ['clock_in', 'reset'],
+    outputs: ['trig_bd', 'trig_sd', 'trig_ch', 'trig_oh', 'accent_out'],
+    controls: [
+      { id: 'bpm', label: 'BPM', type: 'knob', min: 40, max: 240, default: 128, unit: 'bpm', step: 1 },
+      { id: 'swing', label: 'SWING', type: 'knob', min: 0, max: 75, default: 15, unit: '%', step: 1 },
+      { id: 'accent', label: 'ACCENT', type: 'knob', min: 0, max: 1.0, default: 0.6, unit: '', step: 0.01 },
+      { id: 'steps', label: 'STEPS', type: 'knob', min: 1, max: 16, default: 16, unit: '', step: 1 },
+      { id: 'run', label: 'RUN', type: 'select', options: ['running', 'paused'], default: 'running' },
+    ],
+  },
 };
 
 class ModularRackUI {
@@ -1079,7 +1231,9 @@ class ModularRackUI {
       slot.addEventListener('dragover', (e) => {
         e.preventDefault();
         const types = Array.from(e.dataTransfer.types || []);
-        if (types.includes('text/midi-payload') || types.includes('application/json') || types.includes('Files')) {
+        if (types.includes('text/sample-payload')) {
+          slot.classList.add('slot-sample-drag-over');
+        } else if (types.includes('text/midi-payload') || types.includes('application/json') || types.includes('Files')) {
           slot.classList.add('slot-midi-drag-over');
         } else if (types.includes('text/module-type')) {
           slot.classList.add('slot-module-drag-over');
@@ -1088,6 +1242,7 @@ class ModularRackUI {
 
       slot.addEventListener('dragleave', (e) => {
         if (!slot.contains(e.relatedTarget)) {
+          slot.classList.remove('slot-sample-drag-over');
           slot.classList.remove('slot-midi-drag-over');
           slot.classList.remove('slot-module-drag-over');
         }
@@ -1095,6 +1250,7 @@ class ModularRackUI {
 
       slot.addEventListener('drop', async (e) => {
         e.preventDefault();
+        slot.classList.remove('slot-sample-drag-over');
         slot.classList.remove('slot-midi-drag-over');
         slot.classList.remove('slot-module-drag-over');
 
@@ -1106,7 +1262,34 @@ class ModularRackUI {
           return;
         }
 
-        // 2. Dropping a MIDI file / card
+        // 2. Dropping a sample from Sample Archive
+        let sampleData = null;
+        const samplePayload = e.dataTransfer.getData('text/sample-payload');
+        if (samplePayload) {
+          try { sampleData = JSON.parse(samplePayload); } catch (err) {}
+        }
+        if (sampleData && sampleData.download_url) {
+          const isBreak = sampleData.category === 'break';
+          const targetType = isBreak ? 'amen_slicer' : 'sample_player';
+          let targetMod = this.modulesState.find(m => m.row === rowIdx && (m.type === targetType || m.type === 'sample_player'));
+          if (!targetMod) {
+            targetMod = this.modulesState.find(m => m.type === targetType || m.type === 'sample_player');
+          }
+          if (!targetMod) {
+            this.selectedRowIdx = rowIdx;
+            const newMod = this.addModule(targetType, rowIdx);
+            targetMod = newMod || this.modulesState.find(m => m.type === targetType);
+          }
+          if (targetMod) {
+            const modEl = this.rack.querySelector(`.module-panel[data-id="${targetMod.id}"]`);
+            if (modEl && typeof modEl._loadSampleUrl === 'function') {
+              await modEl._loadSampleUrl(sampleData.download_url, sampleData.title || sampleData.filename);
+            }
+          }
+          return;
+        }
+
+        // 3. Dropping a MIDI file / card
         let midiData = null;
         const jsonStr = e.dataTransfer.getData('text/midi-payload') || e.dataTransfer.getData('application/json');
         if (jsonStr) {
@@ -1337,6 +1520,130 @@ class ModularRackUI {
       `;
     }
 
+    // Custom faceplates for new modules
+    let customFaceplateHtml = '';
+    if (modData.type === 'sample_player') {
+      const kitName = (modData.params.kit || 'tr909').toUpperCase();
+      const voiceName = (modData.params.voice || 'kick').toUpperCase();
+      customFaceplateHtml = `
+        <div class="sample-player-faceplate" data-mod-id="${modData.id}">
+          <div class="sample-waveform-wrap" title="Drag & drop .wav file here or use controls">
+            <canvas class="sample-waveform-canvas" width="230" height="40"></canvas>
+            <div class="sample-playhead"></div>
+          </div>
+          <div class="sample-action-row">
+            <button class="sample-hit-btn" title="Audition / Manual Trigger">[&#9654; TRIG]</button>
+            <div class="sample-voice-badge">${kitName} : ${voiceName}</div>
+            <label class="sample-browse-btn" title="Drag & drop or browse .wav file">
+              LOAD .WAV<input type="file" accept=".wav,.mp3,.ogg,.flac" class="sample-file-input" style="display:none">
+            </label>
+          </div>
+        </div>
+      `;
+    } else if (modData.type === 'macro_percussion') {
+      const modelName = (modData.params.model || 'bass_drum').replace('_', ' ').toUpperCase();
+      customFaceplateHtml = `
+        <div class="macro-perc-faceplate" data-mod-id="${modData.id}">
+          <div class="macro-visual-row">
+            <button class="macro-hit-btn" title="Audition / Manual Trigger">[&#9654; HIT]</button>
+            <div class="macro-model-badge">${modelName}</div>
+            <div class="macro-led-meter" title="Percussion Transient Hit Pulse">
+              <span class="macro-meter-bar"></span>
+            </div>
+          </div>
+        </div>
+      `;
+    } else if (modData.type === 'amen_slicer') {
+      customFaceplateHtml = `
+        <div class="amen-slicer-faceplate" data-mod-id="${modData.id}">
+          <div class="amen-grid-container" title="16-Step Breakbeat Slice Sequencer">
+            ${Array.from({length: 16}, (_, i) => `<div class="amen-slice-node ${i === 0 ? 'active' : ''}" data-slice="${i}"><span class="amen-slice-idx">${i + 1}</span></div>`).join('')}
+          </div>
+          <div class="amen-action-row">
+            <button class="amen-step-btn" title="Manual Step Trigger">[STEP]</button>
+            <button class="amen-roll-btn" title="Manual Stutter Roll">[ROLL]</button>
+            <label class="amen-browse-btn" title="Drop or load custom breakbeat .wav">
+              CUSTOM BREAK<input type="file" accept=".wav,.mp3" class="amen-file-input" style="display:none">
+            </label>
+          </div>
+        </div>
+      `;
+    } else if (modData.type === 'quad_euclid') {
+      customFaceplateHtml = `
+        <div class="euclid-faceplate" data-mod-id="${modData.id}">
+          <div class="euclid-rings-wrap" title="4 Concentric Euclidean Tracks (Ch1 Outer -> Ch4 Inner)">
+            <canvas class="euclid-rings-canvas" width="230" height="92"></canvas>
+          </div>
+          <div class="euclid-tracks-led-row">
+            <div class="euclid-track-ind ch1" title="Track 1 Pulse Activity"><span class="euclid-dot"></span>CH1</div>
+            <div class="euclid-track-ind ch2" title="Track 2 Pulse Activity"><span class="euclid-dot"></span>CH2</div>
+            <div class="euclid-track-ind ch3" title="Track 3 Pulse Activity"><span class="euclid-dot"></span>CH3</div>
+            <div class="euclid-track-ind ch4" title="Track 4 Pulse Activity"><span class="euclid-dot"></span>CH4</div>
+          </div>
+        </div>
+      `;
+    } else if (modData.type === 'stochastic_vault') {
+      const rootNote = modData.params.root || 'A';
+      const scaleName = (modData.params.scale || 'dorian').toUpperCase();
+      customFaceplateHtml = `
+        <div class="stochastic-faceplate" data-mod-id="${modData.id}">
+          <div class="stochastic-display-row">
+            <div class="stochastic-note-badge">NOTE: ${rootNote}2 (${scaleName})</div>
+            <div class="stochastic-volt-badge">+0.00 V</div>
+          </div>
+          <div class="stochastic-canvas-wrap" title="Generative Voltage & Step Constellation">
+            <canvas class="stochastic-canvas" width="206" height="34"></canvas>
+          </div>
+        </div>
+      `;
+    } else if (modData.type === 'wavetable_dual') {
+      customFaceplateHtml = `
+        <div class="wavetable-dual-faceplate" data-mod-id="${modData.id}">
+          <div class="wavetable-canvas-wrap" title="Continuous Cross-Wavetable Morph Display">
+            <canvas class="wavetable-canvas" width="216" height="34"></canvas>
+          </div>
+        </div>
+      `;
+    } else if (modData.type === 'sidechain_vca') {
+      customFaceplateHtml = `
+        <div class="sidechain-vca-faceplate" data-mod-id="${modData.id}">
+          <div class="sidechain-meter-strip" title="Dynamic Gain Reduction Meter (-dB)">
+            <span class="gr-label">GR</span>
+            <div class="gr-meter-bar-wrap">
+              <div class="gr-meter-fill"></div>
+            </div>
+            <span class="gr-val-text">0.0 dB</span>
+          </div>
+          <div class="sidechain-btn-row">
+            <button class="sidechain-tap-btn" title="Audition Sidechain Ducking Dip">[TAP DUCK]</button>
+          </div>
+        </div>
+      `;
+    } else if (modData.type === 'tr_matrix_seq') {
+      const tracks = ['BD', 'SD', 'CH', 'OH'];
+      let matrixGridHtml = '<div class="tr-matrix-grid">';
+      for (const trk of tracks) {
+        matrixGridHtml += `<div class="tr-matrix-row" data-track="${trk}"><span class="tr-track-label">${trk}</span><div class="tr-step-buttons">`;
+        for (let s = 0; s < 16; s++) {
+          const beatGroup = Math.floor(s / 4);
+          matrixGridHtml += `<button class="tr-step-btn group-${beatGroup}" data-track="${trk}" data-step="${s}" title="${trk} Step ${s+1}"><span class="tr-led"></span></button>`;
+        }
+        matrixGridHtml += `</div></div>`;
+      }
+      matrixGridHtml += '</div>';
+
+      customFaceplateHtml = `
+        <div class="tr-matrix-faceplate" data-mod-id="${modData.id}">
+          ${matrixGridHtml}
+          <div class="tr-matrix-actions">
+            <button class="tr-matrix-btn tr-clear-btn" title="Clear all tracks">[CLEAR]</button>
+            <button class="tr-matrix-btn tr-rnd-btn" title="Generate musical drum pattern">[RANDOM]</button>
+            <div class="tr-pos-display" title="Current Step">STEP: <span class="tr-step-num">1</span>/16</div>
+          </div>
+        </div>
+      `;
+    }
+
     // Jacks strip
     const signalType = (jackName, direction) => {
       const n = jackName.toLowerCase();
@@ -1379,7 +1686,7 @@ class ModularRackUI {
     }
     jacksHtml += '</div>';
 
-    el.innerHTML = screwsHtml + headerHtml + scopeHtml + midiHtml + controlsHtml + jacksHtml;
+    el.innerHTML = screwsHtml + headerHtml + scopeHtml + midiHtml + customFaceplateHtml + controlsHtml + jacksHtml;
 
     // Attach interaction handlers
     this.bindModuleEvents(el, modData);
@@ -1446,6 +1753,32 @@ class ModularRackUI {
               if (knobEl) this.setKnobValue(knobEl, res.value);
             }
           }
+        }
+
+        if (modData.type === 'sample_player') {
+          const badge = el.querySelector('.sample-voice-badge');
+          if (badge) {
+            const kit = (modData.params.kit || 'tr909').toUpperCase();
+            const voice = (modData.params.voice || 'kick').toUpperCase();
+            badge.textContent = `${kit} : ${voice}`;
+          }
+        } else if (modData.type === 'macro_percussion' && paramId === 'model') {
+          const badge = el.querySelector('.macro-model-badge');
+          if (badge) {
+            badge.textContent = val.replace('_', ' ').toUpperCase();
+          }
+        } else if (modData.type === 'quad_euclid' && paramId === 'active_ch') {
+          if (dspMod && dspMod.tracks && dspMod.tracks[val]) {
+            const tr = dspMod.tracks[val];
+            const stepsKnob = el.querySelector('.knob-wrap[data-param="steps"] .knob');
+            const pulsesKnob = el.querySelector('.knob-wrap[data-param="pulses"] .knob');
+            const offsetKnob = el.querySelector('.knob-wrap[data-param="offset"] .knob');
+            if (stepsKnob) this.setKnobValue(stepsKnob, tr.steps);
+            if (pulsesKnob) this.setKnobValue(pulsesKnob, tr.pulses);
+            if (offsetKnob) this.setKnobValue(offsetKnob, tr.offset);
+          }
+        } else if (modData.type === 'wavetable_dual' && dspMod && dspMod.onMorphUpdate) {
+          dspMod.onMorphUpdate();
         }
 
         if (window.onPatchModified) window.onPatchModified();
@@ -1739,6 +2072,486 @@ class ModularRackUI {
       } else if (!dspMod.midiData) {
         el._loadMidiUrl('/api/midi/download?starter=Acid%20303%20Resonance%20Riff%20(1-Track).mid', 'Acid 303 Resonance Riff (1-Track)');
       }
+    }
+
+    // Special handlers for Sample Player faceplate
+    if (modData.type === 'sample_player' && dspMod) {
+      const faceplate = el.querySelector('.sample-player-faceplate');
+      const hitBtn = faceplate ? faceplate.querySelector('.sample-hit-btn') : null;
+      const fileInput = faceplate ? faceplate.querySelector('.sample-file-input') : null;
+      const voiceBadge = faceplate ? faceplate.querySelector('.sample-voice-badge') : null;
+      const canvas = faceplate ? faceplate.querySelector('.sample-waveform-canvas') : null;
+      const playhead = faceplate ? faceplate.querySelector('.sample-playhead') : null;
+
+      const drawWave = () => {
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        const buf = dspMod.getActiveBuffer();
+        ctx.fillStyle = 'rgba(18, 19, 26, 0.9)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        if (!buf) {
+          ctx.fillStyle = 'var(--omo-dim)';
+          ctx.font = '9px monospace';
+          ctx.textAlign = 'center';
+          ctx.fillText('GENERATING WAVEFORM...', canvas.width / 2, canvas.height / 2 + 3);
+          return;
+        }
+
+        const data = buf.getChannelData(0);
+        const step = Math.ceil(data.length / canvas.width);
+        const amp = canvas.height / 2;
+
+        ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--omo-cyan').trim() || '#7dcfff';
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+
+        for (let i = 0; i < canvas.width; i++) {
+          let min = 1.0;
+          let max = -1.0;
+          for (let j = 0; j < step; j++) {
+            const val = data[i * step + j] || 0;
+            if (val < min) min = val;
+            if (val > max) max = val;
+          }
+          ctx.moveTo(i, (1 + min) * amp);
+          ctx.lineTo(i, (1 + max) * amp);
+        }
+        ctx.stroke();
+      };
+
+      setTimeout(drawWave, 100);
+
+      if (hitBtn) {
+        hitBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          dspMod.triggerHit();
+        });
+      }
+
+      const handleAudioFile = async (file) => {
+        if (!file) return;
+        try {
+          const arr = await file.arrayBuffer();
+          const decoded = await this.dsp.ctx.decodeAudioData(arr);
+          dspMod.loadCustomBuffer(decoded, file.name);
+          modData.params.kit = 'custom';
+          if (voiceBadge) voiceBadge.textContent = `CUSTOM: ${file.name.slice(0, 14)}`;
+          drawWave();
+        } catch (err) {
+          console.error('Failed to decode audio file:', err);
+        }
+      };
+
+      const loadSampleUrl = async (url, title) => {
+        try {
+          const resp = await fetch(url);
+          const arr = await resp.arrayBuffer();
+          const decoded = await this.dsp.ctx.decodeAudioData(arr);
+          dspMod.loadCustomBuffer(decoded, title || 'Sample');
+          modData.params.kit = 'sample';
+          if (voiceBadge) voiceBadge.textContent = `SMPL: ${(title || 'Custom').slice(0, 14)}`;
+          drawWave();
+        } catch (err) {
+          console.error('Failed to load sample URL:', err);
+        }
+      };
+      el._loadSampleUrl = loadSampleUrl;
+
+      if (fileInput) {
+        fileInput.addEventListener('change', (e) => {
+          if (e.target.files && e.target.files[0]) {
+            handleAudioFile(e.target.files[0]);
+          }
+        });
+      }
+
+      if (faceplate) {
+        faceplate.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          faceplate.classList.add('drag-over');
+        });
+        faceplate.addEventListener('dragleave', () => {
+          faceplate.classList.remove('drag-over');
+        });
+        faceplate.addEventListener('drop', async (e) => {
+          e.preventDefault();
+          faceplate.classList.remove('drag-over');
+          if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) {
+            handleAudioFile(e.dataTransfer.files[0]);
+            return;
+          }
+          const sampleJson = e.dataTransfer.getData('text/sample-payload') || e.dataTransfer.getData('application/json');
+          if (sampleJson) {
+            try {
+              const data = JSON.parse(sampleJson);
+              if (data.download_url) {
+                await loadSampleUrl(data.download_url, data.title || data.filename);
+              }
+            } catch (err) {
+              console.error('Sample drop error:', err);
+            }
+          }
+        });
+      }
+
+      dspMod.onHit = () => {
+        if (playhead) {
+          playhead.style.transition = 'none';
+          playhead.style.left = '0%';
+          playhead.style.opacity = '1';
+          requestAnimationFrame(() => {
+            playhead.style.transition = `left ${dspMod.decay || 0.45}s linear, opacity 0.2s ease ${dspMod.decay || 0.45}s`;
+            playhead.style.left = '100%';
+            playhead.style.opacity = '0';
+          });
+        }
+      };
+    }
+
+    // Special handlers for Macro Percussion faceplate
+    if (modData.type === 'macro_percussion' && dspMod) {
+      const faceplate = el.querySelector('.macro-perc-faceplate');
+      const hitBtn = faceplate ? faceplate.querySelector('.macro-hit-btn') : null;
+      const meterBar = faceplate ? faceplate.querySelector('.macro-meter-bar') : null;
+
+      if (hitBtn) {
+        hitBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          dspMod.triggerHit();
+        });
+      }
+
+      dspMod.onHit = () => {
+        if (meterBar) {
+          meterBar.style.transition = 'none';
+          meterBar.style.width = '100%';
+          meterBar.style.opacity = '1';
+          setTimeout(() => {
+            meterBar.style.transition = 'width 0.25s ease-out, opacity 0.25s ease-out';
+            meterBar.style.width = '0%';
+            meterBar.style.opacity = '0.3';
+          }, 20);
+        }
+      };
+    }
+
+    // Special handlers for Amen Slicer faceplate
+    if (modData.type === 'amen_slicer' && dspMod) {
+      const faceplate = el.querySelector('.amen-slicer-faceplate');
+      const stepBtn = faceplate ? faceplate.querySelector('.amen-step-btn') : null;
+      const rollBtn = faceplate ? faceplate.querySelector('.amen-roll-btn') : null;
+      const fileInput = faceplate ? faceplate.querySelector('.amen-file-input') : null;
+      const sliceNodes = faceplate ? faceplate.querySelectorAll('.amen-slice-node') : [];
+
+      if (stepBtn) {
+        stepBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          dspMod.stepSlice();
+        });
+      }
+
+      if (rollBtn) {
+        rollBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          dspMod.rollSlice();
+        });
+      }
+
+      const handleBreakFile = async (file) => {
+        if (!file) return;
+        try {
+          const arr = await file.arrayBuffer();
+          const decoded = await this.dsp.ctx.decodeAudioData(arr);
+          dspMod.loadCustomBreak(decoded, file.name);
+          modData.params.break = 'custom';
+        } catch (err) {
+          console.error('Failed to decode breakbeat file:', err);
+        }
+      };
+
+      if (fileInput) {
+        fileInput.addEventListener('change', (e) => {
+          if (e.target.files && e.target.files[0]) {
+            handleBreakFile(e.target.files[0]);
+          }
+        });
+      }
+
+      const loadBreakUrl = async (url, title) => {
+        try {
+          const resp = await fetch(url);
+          const arr = await resp.arrayBuffer();
+          const decoded = await this.dsp.ctx.decodeAudioData(arr);
+          dspMod.loadCustomBreak(decoded, title || 'Sample Break');
+          modData.params.break = 'custom';
+        } catch (err) {
+          console.error('Failed to load breakbeat URL:', err);
+        }
+      };
+      el._loadBreakUrl = loadBreakUrl;
+      el._loadSampleUrl = loadBreakUrl;
+
+      if (faceplate) {
+        faceplate.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          faceplate.classList.add('drag-over');
+        });
+        faceplate.addEventListener('dragleave', () => {
+          faceplate.classList.remove('drag-over');
+        });
+        faceplate.addEventListener('drop', async (e) => {
+          e.preventDefault();
+          faceplate.classList.remove('drag-over');
+          if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) {
+            handleBreakFile(e.dataTransfer.files[0]);
+            return;
+          }
+          const sampleJson = e.dataTransfer.getData('text/sample-payload') || e.dataTransfer.getData('application/json');
+          if (sampleJson) {
+            try {
+              const data = JSON.parse(sampleJson);
+              if (data.download_url) {
+                await loadBreakUrl(data.download_url, data.title || data.filename);
+              }
+            } catch (err) {
+              console.error('Breakbeat drop error:', err);
+            }
+          }
+        });
+      }
+
+      dspMod.onStep = (sliceIdx) => {
+        sliceNodes.forEach((node, idx) => {
+          node.classList.toggle('active', idx === sliceIdx);
+        });
+      };
+    }
+
+    // Special handlers for Quad Euclid Sequencer faceplate
+    if (modData.type === 'quad_euclid' && dspMod) {
+      const faceplate = el.querySelector('.euclid-faceplate');
+      const canvas = faceplate ? faceplate.querySelector('.euclid-rings-canvas') : null;
+      const trackLeds = {
+        ch1: faceplate ? faceplate.querySelector('.euclid-track-ind.ch1') : null,
+        ch2: faceplate ? faceplate.querySelector('.euclid-track-ind.ch2') : null,
+        ch3: faceplate ? faceplate.querySelector('.euclid-track-ind.ch3') : null,
+        ch4: faceplate ? faceplate.querySelector('.euclid-track-ind.ch4') : null,
+      };
+
+      const trackColors = ['#7dcfff', '#bb9af7', '#ff9e64', '#9ece6a'];
+
+      const drawRings = () => {
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        const cx = canvas.width / 2;
+        const cy = canvas.height / 2;
+        const radii = [38, 28, 19, 10];
+
+        ctx.fillStyle = 'rgba(18, 19, 26, 0.85)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ['ch1', 'ch2', 'ch3', 'ch4'].forEach((chId, idx) => {
+          const track = dspMod.tracks[chId];
+          if (!track) return;
+          const r = radii[idx];
+          const color = trackColors[idx];
+
+          // Base ring track circle
+          ctx.strokeStyle = 'rgba(40, 44, 60, 0.4)';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.arc(cx, cy, r, 0, Math.PI * 2);
+          ctx.stroke();
+
+          // Step nodes
+          const steps = track.steps || 16;
+          for (let s = 0; s < steps; s++) {
+            const angle = (s / steps) * Math.PI * 2 - Math.PI / 2;
+            const px = cx + Math.cos(angle) * r;
+            const py = cy + Math.sin(angle) * r;
+            const isPulse = track.pattern && track.pattern[s] === 1;
+            const isCurrent = track.currentStep === s;
+
+            ctx.fillStyle = isCurrent ? '#ffffff' : (isPulse ? color : 'rgba(70, 75, 95, 0.5)');
+            ctx.beginPath();
+            ctx.arc(px, py, isCurrent ? 2.6 : (isPulse ? 2.0 : 1.0), 0, Math.PI * 2);
+            ctx.fill();
+          }
+        });
+      };
+
+      setTimeout(drawRings, 80);
+
+      dspMod.onStep = (activeMap) => {
+        drawRings();
+        for (const [chId, elInd] of Object.entries(trackLeds)) {
+          if (elInd) {
+            if (activeMap && activeMap[chId]) {
+              elInd.classList.add('flash');
+              setTimeout(() => elInd.classList.remove('flash'), 120);
+            }
+          }
+        }
+      };
+    }
+
+    // Special handlers for Stochastic Vault faceplate
+    if (modData.type === 'stochastic_vault' && dspMod) {
+      const faceplate = el.querySelector('.stochastic-faceplate');
+      const noteBadge = faceplate ? faceplate.querySelector('.stochastic-note-badge') : null;
+      const voltBadge = faceplate ? faceplate.querySelector('.stochastic-volt-badge') : null;
+      const canvas = faceplate ? faceplate.querySelector('.stochastic-canvas') : null;
+
+      const drawGraph = (history = []) => {
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = 'rgba(18, 19, 26, 0.9)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        if (history.length < 2) return;
+        ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--omo-magenta').trim() || '#bb9af7';
+        ctx.lineWidth = 1.4;
+        ctx.beginPath();
+
+        const stepX = canvas.width / (history.length - 1);
+        history.forEach((v, i) => {
+          const y = canvas.height - (v * canvas.height * 0.8 + canvas.height * 0.1);
+          if (i === 0) ctx.moveTo(0, y);
+          else ctx.lineTo(i * stepX, y);
+        });
+        ctx.stroke();
+
+        // Node dots
+        history.forEach((v, i) => {
+          const y = canvas.height - (v * canvas.height * 0.8 + canvas.height * 0.1);
+          ctx.fillStyle = (i === history.length - 1) ? '#ffffff' : 'rgba(187, 154, 247, 0.8)';
+          ctx.beginPath();
+          ctx.arc(i * stepX, y, i === history.length - 1 ? 2.5 : 1.5, 0, Math.PI * 2);
+          ctx.fill();
+        });
+      };
+
+      dspMod.onVoltageUpdate = ({ noteName, freqHz, volts, history }) => {
+        if (noteBadge) noteBadge.textContent = `NOTE: ${noteName} (${freqHz.toFixed(1)}Hz)`;
+        if (voltBadge) voltBadge.textContent = `${volts >= 0 ? '+' : ''}${volts.toFixed(2)} V`;
+        drawGraph(history);
+      };
+    }
+
+    // Special handlers for Dual Morphing Wavetable faceplate
+    if (modData.type === 'wavetable_dual' && dspMod) {
+      const faceplate = el.querySelector('.wavetable-dual-faceplate');
+      const canvas = faceplate ? faceplate.querySelector('.wavetable-canvas') : null;
+
+      const drawWavetable = () => {
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = 'rgba(18, 19, 26, 0.9)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--omo-orange').trim() || '#ff9e64';
+        ctx.lineWidth = 1.4;
+        ctx.beginPath();
+
+        const morph = dspMod.morph !== undefined ? dspMod.morph : 0.35;
+        const cy = canvas.height / 2;
+        const amp = canvas.height * 0.4;
+
+        for (let x = 0; x < canvas.width; x++) {
+          const phase = (x / canvas.width) * Math.PI * 4;
+          // Dual cross-harmonic waveform synthesis visualization
+          const y1 = Math.sin(phase) * 0.6 + Math.sin(phase * 2) * 0.25 + Math.sin(phase * 3) * 0.15;
+          const y2 = Math.sin(phase * 1.5) * 0.4 + Math.sin(phase * 4) * 0.3 + (Math.random() * 0.05 - 0.025);
+          const y = cy - ((1 - morph) * y1 + morph * y2) * amp;
+
+          if (x === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+      };
+
+      setTimeout(drawWavetable, 90);
+      dspMod.onMorphUpdate = drawWavetable;
+    }
+
+    // Special handlers for Sidechain Ducking VCA faceplate
+    if (modData.type === 'sidechain_vca' && dspMod) {
+      const faceplate = el.querySelector('.sidechain-vca-faceplate');
+      const meterFill = faceplate ? faceplate.querySelector('.gr-meter-fill') : null;
+      const grText = faceplate ? faceplate.querySelector('.gr-val-text') : null;
+      const tapBtn = faceplate ? faceplate.querySelector('.sidechain-tap-btn') : null;
+
+      dspMod.onReduction = (gain, db) => {
+        if (meterFill) {
+          const clampedDb = Math.min(0, Math.max(-36, db));
+          const pct = (Math.abs(clampedDb) / 36) * 100;
+          meterFill.style.width = `${pct}%`;
+        }
+        if (grText) {
+          grText.textContent = `${db < -0.1 ? '-' : ''}${Math.abs(db).toFixed(1)} dB`;
+        }
+      };
+
+      if (tapBtn) {
+        tapBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          dspMod.triggerSidechainPulse();
+        });
+      }
+    }
+
+    // Special handlers for TR-Matrix 16-Step Sequencer faceplate
+    if (modData.type === 'tr_matrix_seq' && dspMod) {
+      const faceplate = el.querySelector('.tr-matrix-faceplate');
+      const stepButtons = faceplate ? faceplate.querySelectorAll('.tr-step-btn') : [];
+      const stepNumEl = faceplate ? faceplate.querySelector('.tr-step-num') : null;
+      const clearBtn = faceplate ? faceplate.querySelector('.tr-clear-btn') : null;
+      const rndBtn = faceplate ? faceplate.querySelector('.tr-rnd-btn') : null;
+
+      const syncButtons = () => {
+        stepButtons.forEach((btn) => {
+          const trk = btn.dataset.track.toLowerCase();
+          const step = parseInt(btn.dataset.step);
+          const isActive = dspMod.patterns && dspMod.patterns[trk] && dspMod.patterns[trk][step] === 1;
+          btn.classList.toggle('active', isActive);
+        });
+      };
+      syncButtons();
+
+      stepButtons.forEach((btn) => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const trk = btn.dataset.track.toLowerCase();
+          const step = parseInt(btn.dataset.step);
+          const newState = dspMod.toggleStep(trk, step);
+          btn.classList.toggle('active', newState === 1);
+        });
+      });
+
+      if (clearBtn) {
+        clearBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          dspMod.clearPattern();
+          syncButtons();
+        });
+      }
+
+      if (rndBtn) {
+        rndBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          dspMod.randomizePattern();
+          syncButtons();
+        });
+      }
+
+      dspMod.onStep = (currStep) => {
+        if (stepNumEl) stepNumEl.textContent = currStep + 1;
+        stepButtons.forEach((btn) => {
+          const step = parseInt(btn.dataset.step);
+          btn.classList.toggle('current', step === currStep);
+        });
+      };
     }
   }
 
@@ -2034,7 +2847,375 @@ class ModularRackUI {
     const drawer = document.getElementById('midi-drawer');
     if (!drawer) return;
     const toggleBtn = document.getElementById('midi-drawer-btn');
-    const closeBtn = document.getElementById('close-midi-drawer-btn');
+    const closeSampleBtn = document.getElementById('close-sample-drawer-btn');
+    const closeMidiBtn = document.getElementById('close-midi-drawer-btn');
+
+    if (toggleBtn) toggleBtn.addEventListener('click', () => this.toggleMidiDrawer());
+    if (closeSampleBtn) closeSampleBtn.addEventListener('click', () => this.toggleMidiDrawer(false));
+    if (closeMidiBtn) closeMidiBtn.addEventListener('click', () => this.toggleMidiDrawer(false));
+
+    // Mode Bar Switcher: SAMPLES vs MIDI
+    const modeSamplesBtn = document.getElementById('archive-mode-samples');
+    const modeMidiBtn = document.getElementById('archive-mode-midi');
+    const sampleView = document.getElementById('sample-archive-view');
+    const midiView = document.getElementById('midi-archive-view');
+
+    const switchArchiveMode = (mode) => {
+      if (mode === 'samples') {
+        if (modeSamplesBtn) modeSamplesBtn.classList.add('active');
+        if (modeMidiBtn) modeMidiBtn.classList.remove('active');
+        if (sampleView) sampleView.style.display = 'flex';
+        if (midiView) midiView.style.display = 'none';
+      } else {
+        if (modeMidiBtn) modeMidiBtn.classList.add('active');
+        if (modeSamplesBtn) modeSamplesBtn.classList.remove('active');
+        if (midiView) midiView.style.display = 'flex';
+        if (sampleView) sampleView.style.display = 'none';
+      }
+    };
+
+    if (modeSamplesBtn) modeSamplesBtn.addEventListener('click', () => switchArchiveMode('samples'));
+    if (modeMidiBtn) modeMidiBtn.addEventListener('click', () => switchArchiveMode('midi'));
+
+    // ----------------------------------------------------
+    // 1. SAMPLE ARCHIVE LOGIC
+    // ----------------------------------------------------
+    const sampleSearchInput = document.getElementById('sample-search-input');
+    const sampleSearchBtn = document.getElementById('sample-search-submit-btn');
+    const sampleChipsContainer = document.getElementById('sample-search-chips');
+    const sampleListContainer = document.getElementById('sample-list-container');
+    const sampleTabStarters = document.getElementById('sample-tab-starters');
+    const sampleTabResults = document.getElementById('sample-tab-results');
+    const sampleResultsCount = document.getElementById('sample-results-count');
+
+    let currentSampleTab = 'starters';
+    let currentSampleCategory = 'all';
+    let starterSamplesData = [];
+    let sampleResultsData = [];
+
+    // Audition playback state
+    let activeAuditionSource = null;
+    let activeAuditionBtn = null;
+
+    const stopAudition = () => {
+      if (activeAuditionSource) {
+        try { activeAuditionSource.stop(); } catch (e) {}
+        activeAuditionSource = null;
+      }
+      if (activeAuditionBtn) {
+        activeAuditionBtn.classList.remove('playing');
+        activeAuditionBtn.innerHTML = '&#9654; PLAY';
+        activeAuditionBtn = null;
+      }
+    };
+
+    const playAudition = async (url, btn) => {
+      if (activeAuditionBtn === btn) {
+        stopAudition();
+        return;
+      }
+      stopAudition();
+      btn.innerHTML = '&#9632; STOP';
+      btn.classList.add('playing');
+      activeAuditionBtn = btn;
+      try {
+        const resp = await fetch(url);
+        const arr = await resp.arrayBuffer();
+        const decoded = await this.dsp.ctx.decodeAudioData(arr);
+        const src = this.dsp.ctx.createBufferSource();
+        src.buffer = decoded;
+        const gain = this.dsp.ctx.createGain();
+        gain.gain.value = 0.85;
+        src.connect(gain);
+        gain.connect(this.dsp.masterGain || this.dsp.ctx.destination);
+        src.onended = () => {
+          if (activeAuditionBtn === btn) {
+            stopAudition();
+          }
+        };
+        activeAuditionSource = src;
+        src.start();
+      } catch (err) {
+        console.error('Audition error:', err);
+        stopAudition();
+      }
+    };
+
+    // Category Filter Pills for Samples
+    const sampleFilterContainer = document.getElementById('sample-filter-pills');
+    if (sampleFilterContainer) {
+      const samplePills = sampleFilterContainer.querySelectorAll('.midi-filter-pill');
+      samplePills.forEach(pill => {
+        pill.addEventListener('click', () => {
+          samplePills.forEach(p => p.classList.remove('active'));
+          pill.classList.add('active');
+          currentSampleCategory = pill.dataset.filter || 'all';
+          if (currentSampleTab === 'starters') {
+            loadSampleStarters();
+          } else {
+            doSampleSearch(sampleSearchInput ? sampleSearchInput.value : '');
+          }
+        });
+      });
+    }
+
+    // Quick Sample Search Chips
+    const sampleChips = ['808 KICK', '909 PUNCH', 'LINN RETRO', 'CRISP SNARE', 'HANDCLAP', 'OPEN HAT', 'CLOSED HAT', 'AMEN BREAK', 'COWBELL', 'LASER ZAP', 'CLAVE'];
+    if (sampleChipsContainer) {
+      sampleChipsContainer.innerHTML = '';
+      sampleChips.forEach(c => {
+        const chip = document.createElement('button');
+        chip.classList.add('midi-chip');
+        chip.textContent = c;
+        chip.addEventListener('click', () => {
+          if (sampleSearchInput) {
+            sampleSearchInput.value = c.toLowerCase();
+            doSampleSearch(c.toLowerCase());
+          }
+        });
+        sampleChipsContainer.appendChild(chip);
+      });
+    }
+
+    // Render Sample Cards
+    const renderSampleCards = (items, isStarter = false) => {
+      if (!sampleListContainer) return;
+      sampleListContainer.innerHTML = '';
+      if (!items || !items.length) {
+        sampleListContainer.innerHTML = `
+          <div style="text-align:center; padding: 24px 12px; color:var(--omo-dim); font-size:10px;">
+            No samples found. Try selecting another category or searching.
+          </div>
+        `;
+        return;
+      }
+
+      items.forEach(item => {
+        const card = document.createElement('div');
+        card.classList.add('sample-card');
+        card.draggable = true;
+
+        const cat = item.category || 'perc';
+        const catClass = `sample-cat-${cat}`;
+        const durStr = item.duration ? `${item.duration}s` : '';
+        const rateStr = item.samplerate ? `${Math.round(item.samplerate / 1000)}kHz` : '';
+        const bitStr = item.bitdepth ? `${item.bitdepth}b` : '';
+        const metaTags = [durStr, rateStr, bitStr].filter(Boolean).join(' &bull; ');
+
+        card.innerHTML = `
+          <div class="sample-card-header">
+            <span class="sample-card-title" title="${item.title}">${item.title}</span>
+            <span class="sample-cat-badge ${catClass}">${cat.toUpperCase()}</span>
+          </div>
+          <div class="sample-meta-row">
+            <span class="sample-meta-tags">${metaTags}</span>
+            <span style="font-size:7px; color:var(--omo-dim);">${item.source || (isStarter ? 'Starter Kit' : 'Freesound CC0')}</span>
+          </div>
+          <div class="sample-card-actions">
+            <button class="sample-audition-btn">&#9654; PLAY</button>
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span style="font-size:7px; color:var(--omo-dim); cursor:grab;">&#x2731; Drag</span>
+              <button class="sample-card-load-btn">LOAD</button>
+            </div>
+          </div>
+        `;
+
+        card.addEventListener('dragstart', (e) => {
+          document.body.classList.add('dragging-active');
+          const payload = JSON.stringify({
+            title: item.title,
+            filename: item.filename,
+            category: item.category,
+            download_url: item.download_url,
+            is_starter: isStarter,
+          });
+          e.dataTransfer.setData('text/sample-payload', payload);
+          e.dataTransfer.setData('application/json', payload);
+          e.dataTransfer.setData('text/plain', payload);
+          e.dataTransfer.effectAllowed = 'copy';
+        });
+
+        card.addEventListener('dragend', () => {
+          document.body.classList.remove('dragging-active');
+        });
+
+        const playBtn = card.querySelector('.sample-audition-btn');
+        if (playBtn) {
+          playBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            playAudition(item.download_url, playBtn);
+          });
+        }
+
+        const loadBtn = card.querySelector('.sample-card-load-btn');
+        if (loadBtn) {
+          loadBtn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            loadBtn.textContent = '...';
+            const isBreak = item.category === 'break';
+            const targetType = isBreak ? 'amen_slicer' : 'sample_player';
+            let targetMod = this.modulesState.find(m => m.type === targetType || m.type === 'sample_player');
+            if (!targetMod) {
+              const modId = this.addModule(targetType);
+              targetMod = this.modulesState.find(m => m.id === modId);
+            }
+            if (targetMod) {
+              const modEl = this.rack.querySelector(`.module-panel[data-id="${targetMod.id}"]`);
+              if (modEl && typeof modEl._loadSampleUrl === 'function') {
+                await modEl._loadSampleUrl(item.download_url, item.title || item.filename);
+                loadBtn.textContent = 'LOADED';
+                setTimeout(() => { loadBtn.textContent = 'LOAD'; }, 1500);
+              }
+            }
+          });
+        }
+
+        sampleListContainer.appendChild(card);
+      });
+    };
+
+    const loadSampleStarters = async () => {
+      try {
+        const resp = await fetch(`/api/samples/starters?category=${encodeURIComponent(currentSampleCategory)}`);
+        starterSamplesData = await resp.json();
+        if (currentSampleTab === 'starters') {
+          renderSampleCards(starterSamplesData, true);
+        }
+      } catch (err) {
+        console.error('Failed to load sample starters:', err);
+      }
+    };
+
+    const doSampleSearch = async (q) => {
+      if (!q || !q.trim()) {
+        currentSampleTab = 'starters';
+        if (sampleTabStarters) sampleTabStarters.classList.add('active');
+        if (sampleTabResults) sampleTabResults.classList.remove('active');
+        loadSampleStarters();
+        return;
+      }
+      currentSampleTab = 'results';
+      if (sampleTabStarters) sampleTabStarters.classList.remove('active');
+      if (sampleTabResults) sampleTabResults.classList.add('active');
+      if (sampleListContainer) {
+        sampleListContainer.innerHTML = `
+          <div style="text-align:center; padding: 24px 12px; color:var(--omo-accent); font-size:10px;">
+            Searching sample archives (${currentSampleCategory})...
+          </div>
+        `;
+      }
+      try {
+        const resp = await fetch(`/api/samples/search?q=${encodeURIComponent(q.trim())}&category=${encodeURIComponent(currentSampleCategory)}`);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const data = await resp.json();
+        sampleResultsData = data.results || [];
+        if (sampleResultsCount) sampleResultsCount.textContent = sampleResultsData.length;
+        renderSampleCards(sampleResultsData, false);
+      } catch (err) {
+        if (sampleListContainer) {
+          sampleListContainer.innerHTML = `
+            <div style="color:var(--omo-err); padding:16px; font-size:10px;">
+              Search failed: ${err.message}
+            </div>
+          `;
+        }
+      }
+    };
+
+    let sampleDebounceTimer = null;
+    if (sampleSearchInput) {
+      sampleSearchInput.addEventListener('input', (e) => {
+        clearTimeout(sampleDebounceTimer);
+        const val = e.target.value;
+        sampleDebounceTimer = setTimeout(() => {
+          doSampleSearch(val);
+        }, 350);
+      });
+      sampleSearchInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          clearTimeout(sampleDebounceTimer);
+          doSampleSearch(sampleSearchInput.value);
+        }
+      });
+    }
+
+    if (sampleSearchBtn && sampleSearchInput) {
+      sampleSearchBtn.addEventListener('click', () => {
+        clearTimeout(sampleDebounceTimer);
+        doSampleSearch(sampleSearchInput.value);
+      });
+    }
+
+    if (sampleTabStarters) {
+      sampleTabStarters.addEventListener('click', () => {
+        currentSampleTab = 'starters';
+        sampleTabStarters.classList.add('active');
+        if (sampleTabResults) sampleTabResults.classList.remove('active');
+        loadSampleStarters();
+      });
+    }
+
+    if (sampleTabResults) {
+      sampleTabResults.addEventListener('click', () => {
+        currentSampleTab = 'results';
+        sampleTabResults.classList.add('active');
+        if (sampleTabStarters) sampleTabStarters.classList.remove('active');
+        renderSampleCards(sampleResultsData, false);
+      });
+    }
+
+    // Freesound Key Toggle & Save
+    const keyToggleBtn = document.getElementById('sample-key-toggle-btn');
+    const keyPanel = document.getElementById('sample-key-panel');
+    const keyInput = document.getElementById('sample-key-input');
+    const keySaveBtn = document.getElementById('sample-key-save-btn');
+    const keyIndicator = document.getElementById('sample-key-status-indicator');
+
+    if (keyToggleBtn && keyPanel) {
+      keyToggleBtn.addEventListener('click', () => {
+        keyPanel.classList.toggle('open');
+        if (keyPanel.classList.contains('open') && keyInput) keyInput.focus();
+      });
+    }
+
+    const checkKeyStatus = async () => {
+      try {
+        const res = await fetch('/api/samples/key');
+        const data = await res.json();
+        if (data.has_key && keyIndicator) {
+          keyIndicator.innerHTML = `<span style="font-size:10px; color:var(--omo-ok);">&#x2713;</span> Freesound CC0 Online Active`;
+          keyIndicator.classList.add('active');
+          if (keyToggleBtn) keyToggleBtn.textContent = '🔑 Change Key';
+        }
+      } catch (e) {}
+    };
+    checkKeyStatus();
+
+    if (keySaveBtn && keyInput) {
+      keySaveBtn.addEventListener('click', async () => {
+        const val = keyInput.value.trim();
+        try {
+          await fetch('/api/samples/key', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ key: val }),
+          });
+          if (keyPanel) keyPanel.classList.remove('open');
+          checkKeyStatus();
+          if (sampleSearchInput && sampleSearchInput.value.trim()) {
+            doSampleSearch(sampleSearchInput.value.trim());
+          }
+        } catch (err) {
+          console.error('Failed to save key:', err);
+        }
+      });
+    }
+
+    loadSampleStarters();
+
+    // ----------------------------------------------------
+    // 2. MIDI ARCHIVE LOGIC
+    // ----------------------------------------------------
     const searchInput = document.getElementById('midi-search-input');
     const searchBtn = document.getElementById('midi-search-submit-btn');
     const chipsContainer = document.getElementById('midi-search-chips');
@@ -2048,11 +3229,8 @@ class ModularRackUI {
     let searchResultsData = [];
     let starterRiffsData = [];
 
-    if (toggleBtn) toggleBtn.addEventListener('click', () => this.toggleMidiDrawer());
-    if (closeBtn) closeBtn.addEventListener('click', () => this.toggleMidiDrawer(false));
-
     // Single / Multi Filter Pills in Left Drawer
-    const filterPills = drawer.querySelectorAll('.midi-filter-pill');
+    const filterPills = drawer.querySelectorAll('#midi-archive-view .midi-filter-pill');
     filterPills.forEach(pill => {
       pill.addEventListener('click', () => {
         filterPills.forEach(p => p.classList.remove('active'));
@@ -2269,6 +3447,20 @@ class ModularRackUI {
         tabStarters.classList.remove('active');
         renderCards(searchResultsData, false);
       });
+    }
+
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.has('drawer')) {
+      const d = urlParams.get('drawer');
+      if (d === 'sample' || d === 'samples') {
+        this.toggleMidiDrawer(true);
+        switchArchiveMode('samples');
+      } else if (d === 'midi') {
+        this.toggleMidiDrawer(true);
+        switchArchiveMode('midi');
+      } else if (d === 'modules') {
+        this.toggleModuleDrawer(true);
+      }
     }
 
     loadStarters();
