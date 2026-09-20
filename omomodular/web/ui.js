@@ -7,6 +7,8 @@ const MODULE_DEFINITIONS = {
   vco: {
     name: 'DUAL DRONE VCO',
     category: 'Source',
+    styleClass: 'panel-style-moog',
+    knobType: 'knob-moog',
     width: 200,
     desc: 'Dual analog waveform oscillators with micro-detune, sub-octave, and cross-FM.',
     inputs: [],
@@ -24,6 +26,8 @@ const MODULE_DEFINITIONS = {
   noise: {
     name: 'NOISE & TEXTURE',
     category: 'Source',
+    styleClass: 'panel-style-fr4',
+    knobType: 'knob-davies',
     width: 170,
     desc: 'Analog noise generator (White, Pink, Brown) with tape/vinyl texture.',
     inputs: [],
@@ -36,6 +40,8 @@ const MODULE_DEFINITIONS = {
   filter: {
     name: 'LADDER FILTER',
     category: 'Filter',
+    styleClass: 'panel-style-moog',
+    knobType: 'knob-moog',
     width: 180,
     desc: 'Resonant 24dB ladder filter with saturation drive and self-oscillation.',
     inputs: ['in'],
@@ -50,6 +56,8 @@ const MODULE_DEFINITIONS = {
   wavefolder: {
     name: 'WAVEFOLDER',
     category: 'Distortion',
+    styleClass: 'panel-style-fr4',
+    knobType: 'knob-davies',
     width: 180,
     desc: 'Trigonometric harmonic wavefolder with soft-clipping analog saturation.',
     inputs: ['in'],
@@ -63,6 +71,8 @@ const MODULE_DEFINITIONS = {
   bitcrusher: {
     name: 'BITCRUSHER',
     category: 'Lo-Fi',
+    styleClass: 'panel-style-fr4',
+    knobType: 'knob-davies',
     width: 170,
     desc: 'Digital downsampling decimation and bit-depth quantization crunch.',
     inputs: ['in'],
@@ -75,6 +85,8 @@ const MODULE_DEFINITIONS = {
   delay: {
     name: 'TAPE DELAY',
     category: 'Time',
+    styleClass: 'panel-style-vintage',
+    knobType: 'knob-moog',
     width: 190,
     desc: 'Stereo tape delay with feedback, high-frequency damping, and wow/flutter.',
     inputs: ['in'],
@@ -90,6 +102,8 @@ const MODULE_DEFINITIONS = {
   reverb: {
     name: 'SPACE REVERB',
     category: 'Space',
+    styleClass: 'panel-style-vintage',
+    knobType: 'knob-moog',
     width: 180,
     desc: 'Lush ambient diffusion reverb for infinite ethereal drone washes.',
     inputs: ['in'],
@@ -102,6 +116,8 @@ const MODULE_DEFINITIONS = {
   mixer: {
     name: '8-CH MASTER MIXING CONSOLE',
     category: 'Master',
+    styleClass: 'panel-style-digital',
+    knobType: 'knob-trimpot',
     width: '100%',
     desc: 'Full-length 8-channel stereo master console with per-channel gain, pan, mute, solo, and live master oscilloscope.',
     inputs: ['in1', 'in2', 'in3', 'in4', 'in5', 'in6', 'in7', 'in8'],
@@ -128,6 +144,8 @@ const MODULE_DEFINITIONS = {
   swarm: {
     name: 'CHORD SWARM VCO',
     category: 'Source',
+    styleClass: 'panel-style-makenois',
+    knobType: 'knob-davies',
     width: 210,
     desc: '4-voice supersaw & chord drone cluster with spread detuning and sub-bass.',
     inputs: [],
@@ -143,6 +161,8 @@ const MODULE_DEFINITIONS = {
   granular: {
     name: 'GRANULAR CLOUDS',
     category: 'Texture',
+    styleClass: 'panel-style-makenois',
+    knobType: 'knob-davies',
     width: 190,
     desc: 'Real-time micro-sampling grain texture cloud generator with pitch spray.',
     inputs: ['in'],
@@ -157,6 +177,8 @@ const MODULE_DEFINITIONS = {
   resonator: {
     name: 'KARPLUS RESONATOR',
     category: 'Physical',
+    styleClass: 'panel-style-makenois',
+    knobType: 'knob-davies',
     width: 180,
     desc: 'Tuned string and metallic plate physical modeling resonator.',
     inputs: ['in'],
@@ -171,6 +193,8 @@ const MODULE_DEFINITIONS = {
   formant: {
     name: 'FORMANT FILTER',
     category: 'Filter',
+    styleClass: 'panel-style-euro',
+    knobType: 'knob-sifam',
     width: 180,
     desc: 'Dual-peak vocal tract filter morphing across English vowel formants (A-E-I-O-U).',
     inputs: ['in'],
@@ -183,6 +207,8 @@ const MODULE_DEFINITIONS = {
   chorus: {
     name: 'DIMENSION CHORUS',
     category: 'Modulation',
+    styleClass: 'panel-style-vintage',
+    knobType: 'knob-moog',
     width: 180,
     desc: 'Multi-voice bucket brigade delay stereo chorus and flanger.',
     inputs: ['in'],
@@ -196,6 +222,8 @@ const MODULE_DEFINITIONS = {
   phaser: {
     name: 'OPTICAL PHASER',
     category: 'Modulation',
+    styleClass: 'panel-style-vintage',
+    knobType: 'knob-moog',
     width: 180,
     desc: '6-stage analog allpass phaser with feedback swoosh.',
     inputs: ['in'],
@@ -210,6 +238,8 @@ const MODULE_DEFINITIONS = {
   ringmod: {
     name: 'RING MODULATOR',
     category: 'Dissonance',
+    styleClass: 'panel-style-vintage',
+    knobType: 'knob-moog',
     width: 180,
     desc: 'Internal carrier frequency multiplication for alien, metallic, and robotic tones.',
     inputs: ['in'],
@@ -223,6 +253,8 @@ const MODULE_DEFINITIONS = {
   autopan: {
     name: 'AUTO-PAN & TREMOLO',
     category: 'Spatial',
+    styleClass: 'panel-style-euro',
+    knobType: 'knob-sifam',
     width: 170,
     desc: 'Stereo spatial motion and optical amplitude chopper.',
     inputs: ['in'],
@@ -236,6 +268,8 @@ const MODULE_DEFINITIONS = {
   wavetable: {
     name: 'WAVETABLE VCO',
     category: 'Source',
+    styleClass: 'panel-style-digital',
+    knobType: 'knob-trimpot',
     width: 190,
     desc: 'Digital harmonic wavetable oscillator with morphable spectra (Glass, Organ, Vocal, Metallic).',
     inputs: [],
@@ -249,6 +283,8 @@ const MODULE_DEFINITIONS = {
   fm_quad: {
     name: 'FM QUAD OPERATOR',
     category: 'Source',
+    styleClass: 'panel-style-digital',
+    knobType: 'knob-trimpot',
     width: 210,
     desc: '4-operator cascading frequency modulation synthesizer voice with harmonic ratios.',
     inputs: [],
@@ -263,6 +299,8 @@ const MODULE_DEFINITIONS = {
   percussion: {
     name: 'ANALOG DRUMS',
     category: 'Percussion',
+    styleClass: 'panel-style-roland',
+    knobType: 'knob-sifam',
     width: 230,
     desc: 'Vintage analog drum synthesizer (808 Sub Kick, Snare Snap, Metallic Hat).',
     inputs: [],
@@ -277,6 +315,8 @@ const MODULE_DEFINITIONS = {
   acid303: {
     name: 'ACID 303 SYNTH',
     category: 'Source',
+    styleClass: 'panel-style-roland',
+    knobType: 'knob-sifam',
     width: 230,
     desc: 'Diode-ladder resonant acid bass synth voice with accent sweep and slide.',
     inputs: [],
@@ -292,6 +332,8 @@ const MODULE_DEFINITIONS = {
   eq7: {
     name: '7-BAND GRAPHIC EQ',
     category: 'Filter',
+    styleClass: 'panel-style-digital',
+    knobType: 'knob-trimpot',
     width: 240,
     desc: 'Surgical 7-band graphic equalizer for shaping bass, mids, and air frequencies.',
     inputs: ['in'],
@@ -308,6 +350,8 @@ const MODULE_DEFINITIONS = {
   comb: {
     name: 'COMB RESONATOR',
     category: 'Filter',
+    styleClass: 'panel-style-euro',
+    knobType: 'knob-sifam',
     width: 180,
     desc: 'Dual comb filter creating flanged ringing resonances and acoustic chamber peaks.',
     inputs: ['in'],
@@ -321,6 +365,8 @@ const MODULE_DEFINITIONS = {
   compressor: {
     name: 'VCA COMPRESSOR',
     category: 'Dynamics',
+    styleClass: 'panel-style-euro',
+    knobType: 'knob-sifam',
     width: 190,
     desc: 'Analog VCA dynamics compressor and makeup gain level maximizer.',
     inputs: ['in'],
@@ -334,6 +380,8 @@ const MODULE_DEFINITIONS = {
   fuzz: {
     name: 'GERMANIUM FUZZ',
     category: 'Distortion',
+    styleClass: 'panel-style-fr4',
+    knobType: 'knob-davies',
     width: 180,
     desc: 'Vintage Germanium diode asymmetric saturation and fuzzy harmonic breakup.',
     inputs: ['in'],
@@ -347,6 +395,8 @@ const MODULE_DEFINITIONS = {
   shimmer: {
     name: 'SHIMMER REVERB',
     category: 'Space',
+    styleClass: 'panel-style-vintage',
+    knobType: 'knob-moog',
     width: 190,
     desc: 'Celestial ambient shimmer reverb with octave-transposed infinite feedback.',
     inputs: ['in'],
@@ -359,6 +409,8 @@ const MODULE_DEFINITIONS = {
   sequencer: {
     name: '8-STEP GATE SEQ',
     category: 'Utility',
+    styleClass: 'panel-style-roland',
+    knobType: 'knob-sifam',
     width: 180,
     desc: 'Rhythmic 8-step volume chopper and sync gate pulse generator.',
     inputs: ['in'],
@@ -370,6 +422,8 @@ const MODULE_DEFINITIONS = {
   mult: {
     name: 'SIGNAL MULT & INV',
     category: 'Utility',
+    styleClass: 'panel-style-euro',
+    knobType: 'knob-sifam',
     width: 110,
     desc: '1-to-3 audio signal splitter with dual direct outs and phase inverted output.',
     inputs: ['in'],
@@ -379,6 +433,8 @@ const MODULE_DEFINITIONS = {
   euclid: {
     name: 'EUCLIDEAN RHYTHM',
     category: 'Utility',
+    styleClass: 'panel-style-euro',
+    knobType: 'knob-sifam',
     width: 180,
     desc: 'Euclidean pulse generator (E(k,n)) for intricate polyrhythms with pulse audio click.',
     inputs: ['in'],
@@ -393,6 +449,8 @@ const MODULE_DEFINITIONS = {
   turing: {
     name: 'TURING MACHINE',
     category: 'Source',
+    styleClass: 'panel-style-makenois',
+    knobType: 'knob-davies',
     width: 190,
     desc: 'Pseudo-random looping shift register generating evolving quantized melodies.',
     inputs: [],
@@ -407,6 +465,8 @@ const MODULE_DEFINITIONS = {
   sample_hold: {
     name: 'SAMPLE & HOLD',
     category: 'Utility',
+    styleClass: 'panel-style-fr4',
+    knobType: 'knob-davies',
     width: 170,
     desc: 'Analog sample-and-hold circuit with internal noise and slew glide.',
     inputs: ['in'],
@@ -420,6 +480,8 @@ const MODULE_DEFINITIONS = {
   adsr: {
     name: 'ADSR ENVELOPE',
     category: 'Modulation',
+    styleClass: 'panel-style-euro',
+    knobType: 'knob-sifam',
     width: 180,
     desc: '4-stage envelope generator with VCA and auto-looping cycle mode.',
     inputs: ['in'],
@@ -435,6 +497,8 @@ const MODULE_DEFINITIONS = {
   maths: {
     name: 'MATHS FUNCTION',
     category: 'Modulation',
+    styleClass: 'panel-style-makenois',
+    knobType: 'knob-davies',
     width: 190,
     desc: 'Dual slew & function generator with log-to-exp curve shaping and cycle mode.',
     inputs: ['in'],
@@ -449,6 +513,8 @@ const MODULE_DEFINITIONS = {
   harmonic: {
     name: 'HARMONIC OSC',
     category: 'Source',
+    styleClass: 'panel-style-makenois',
+    knobType: 'knob-davies',
     width: 220,
     desc: 'Additive sine generator with fundamental pitch and 6 overtone sliders.',
     inputs: [],
@@ -466,6 +532,8 @@ const MODULE_DEFINITIONS = {
   bytebeat: {
     name: 'BYTEBEAT GLITCH',
     category: 'Lo-Fi',
+    styleClass: 'panel-style-fr4',
+    knobType: 'knob-davies',
     width: 180,
     desc: 'Algorithmic C-style one-line mathematical bytebeat oscillator.',
     inputs: [],
@@ -480,6 +548,8 @@ const MODULE_DEFINITIONS = {
   spring: {
     name: 'SPRING REVERB',
     category: 'Space',
+    styleClass: 'panel-style-vintage',
+    knobType: 'knob-moog',
     width: 180,
     desc: 'Mechanical dual-spring tank emulator with coil saturation and tension damping.',
     inputs: ['in'],
@@ -494,6 +564,8 @@ const MODULE_DEFINITIONS = {
   pingpong: {
     name: 'STEREO PING-PONG',
     category: 'Time',
+    styleClass: 'panel-style-vintage',
+    knobType: 'knob-moog',
     width: 190,
     desc: 'Cross-feedback dual stereo delay bouncing between left and right channels.',
     inputs: ['in'],
@@ -508,6 +580,8 @@ const MODULE_DEFINITIONS = {
   svf: {
     name: 'STATE VARIABLE SVF',
     category: 'Filter',
+    styleClass: 'panel-style-euro',
+    knobType: 'knob-sifam',
     width: 180,
     desc: '12dB/oct Oberheim-style multi-mode SVF morphing LP -> Notch -> HP.',
     inputs: ['in'],
@@ -522,6 +596,8 @@ const MODULE_DEFINITIONS = {
   rotary: {
     name: 'ROTARY SPEAKER',
     category: 'Spatial',
+    styleClass: 'panel-style-vintage',
+    knobType: 'knob-moog',
     width: 180,
     desc: 'Leslie 122 rotating horn & drum cabinet simulator with Doppler motion.',
     inputs: ['in'],
@@ -536,6 +612,8 @@ const MODULE_DEFINITIONS = {
   tape_warmer: {
     name: 'PORTASTUDIO TAPE',
     category: 'Lo-Fi',
+    styleClass: 'panel-style-vintage',
+    knobType: 'knob-moog',
     width: 180,
     desc: '4-track magnetic cassette simulator with tape saturation, wow, and hiss.',
     inputs: ['in'],
@@ -550,6 +628,8 @@ const MODULE_DEFINITIONS = {
   sub_harmonic: {
     name: 'SUB-BASS HARMONIC',
     category: 'Source',
+    styleClass: 'panel-style-moog',
+    knobType: 'knob-moog',
     width: 180,
     desc: 'Subharmonic frequency divider creating -1 and -2 octave low-end weight.',
     inputs: ['in'],
@@ -563,6 +643,8 @@ const MODULE_DEFINITIONS = {
   crossfader: {
     name: 'A/B CROSSFADER',
     category: 'Utility',
+    styleClass: 'panel-style-euro',
+    knobType: 'knob-sifam',
     width: 170,
     desc: 'Dual-channel crossfader with equal-power trigonometric morphing.',
     inputs: ['inA', 'inB'],
@@ -575,6 +657,8 @@ const MODULE_DEFINITIONS = {
   quad_lfo: {
     name: 'QUAD MORPHING LFO',
     category: 'Modulation',
+    styleClass: 'panel-style-euro',
+    knobType: 'knob-sifam',
     width: 180,
     desc: '4-phase quadrature low-frequency modulation oscillator.',
     inputs: [],
@@ -588,6 +672,8 @@ const MODULE_DEFINITIONS = {
   midi_player: {
     name: 'MIDI FILE PLAYER',
     category: 'Source',
+    styleClass: 'panel-style-digital',
+    knobType: 'knob-trimpot',
     width: 380,
     desc: 'Multi-track Standard MIDI File player with live track mute/solo mixer, polyphonic synth, CV/Gate outs, and drag-and-drop.',
     inputs: [],
@@ -657,6 +743,7 @@ class ModularRackUI {
             </div>
             <div class="strip-jack-zone">
               <div class="jack in-jack" data-module="mixer_1" data-jack="in${i}" data-direction="in" title="CH ${i} Audio In [IN ${i}]">
+                <div class="jack-bezel"></div>
                 <div class="jack-hole"></div>
               </div>
               <span class="strip-jack-tag">IN ${i}</span>
@@ -1129,10 +1216,12 @@ class ModularRackUI {
 
     const el = document.createElement('div');
     el.classList.add('module-panel');
+    if (def.styleClass) el.classList.add(def.styleClass);
     el.dataset.id = modData.id;
     el.dataset.type = modData.type;
     el.dataset.row = rowIdx;
     el.style.width = `${def.width}px`;
+    const knobType = def.knobType || 'knob-davies';
 
     // Screw holes (Eurorack authentic)
     const screwsHtml = `
@@ -1168,7 +1257,7 @@ class ModularRackUI {
       if (c.type === 'knob') {
         controlsHtml += `
           <div class="knob-wrap" data-param="${c.id}">
-            <div class="knob" data-min="${c.min}" data-max="${c.max}" data-step="${c.step || 0.01}" data-val="${val}" data-unit="${c.unit || ''}">
+            <div class="knob ${knobType}" data-min="${c.min}" data-max="${c.max}" data-step="${c.step || 0.01}" data-val="${val}" data-unit="${c.unit || ''}">
               <div class="knob-dial">
                 <div class="knob-pointer"></div>
               </div>
@@ -1249,12 +1338,19 @@ class ModularRackUI {
     }
 
     // Jacks strip
+    const signalType = (jackName, direction) => {
+      const n = jackName.toLowerCase();
+      if (/gate|trig|clock/.test(n)) return 'gate';
+      if (/cv|pitch|vel|v_oct|mod/.test(n)) return 'cv';
+      return direction;
+    };
+
     let jacksHtml = '<div class="jacks-strip">';
     if (def.inputs.length > 0) {
       jacksHtml += '<div class="jacks-col inputs-col">';
       for (const inJack of def.inputs) {
         jacksHtml += `
-          <div class="jack-wrap">
+          <div class="jack-wrap" data-signal="${signalType(inJack, 'in')}">
             <span class="jack-label">${inJack.toUpperCase()}</span>
             <div class="jack" data-module="${modData.id}" data-jack="${inJack}" data-direction="in">
               <div class="jack-bezel"></div>
@@ -1270,7 +1366,7 @@ class ModularRackUI {
       jacksHtml += '<div class="jacks-col outputs-col">';
       for (const outJack of def.outputs) {
         jacksHtml += `
-          <div class="jack-wrap">
+          <div class="jack-wrap" data-signal="${signalType(outJack, 'out')}">
             <span class="jack-label">${outJack.toUpperCase()}</span>
             <div class="jack" data-module="${modData.id}" data-jack="${outJack}" data-direction="out">
               <div class="jack-bezel"></div>

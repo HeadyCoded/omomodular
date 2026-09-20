@@ -1408,68 +1408,305 @@
       color: var(--omo-bg);
     }
 
-    /* ---------------- Module Personality Themes ---------------- */
-    .module-panel[data-type="midi_player"] {
-      background: linear-gradient(180deg, #171a28 0%, #10121b 100%);
-      border: 1px solid #3d4566;
-      box-shadow: inset 0 0 0 1px rgba(122, 162, 247, 0.2), 0 6px 18px rgba(0, 0, 0, 0.6);
+    /* ---------------- Real-World Hardware Design Families ---------------- */
+    /* Seven historical/boutique Eurorack manufacturing aesthetics, applied via
+       def.styleClass in MODULE_DEFINITIONS (ui.js). Pure procedural CSS: no
+       images, no network requests. */
+
+    /* 1. Moog Heritage — wrinkle black powder-coat, cream serif, spun-metal */
+    .panel-style-moog {
+      background-color: #14151a;
+      background-image:
+        radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+        radial-gradient(circle at 0% 0%, rgba(0, 0, 0, 0.4) 0%, transparent 70%);
+      background-size: 3px 3px, 100% 100%;
+      border: 1px solid #06070a;
+      border-top: 2px solid #8a6a42;
+      box-shadow:
+        inset 0 0 15px rgba(0, 0, 0, 0.85),
+        inset 0 1px 1px rgba(255, 255, 255, 0.08),
+        0 4px 12px rgba(0, 0, 0, 0.5);
     }
-    .module-panel[data-type="midi_player"] .module-header {
-      background: #111422;
-      border-bottom: 1px solid #282f49;
+    .panel-style-moog .module-header {
+      background: #0f1014;
+      border-bottom: 1px solid #06070a;
     }
-    .module-panel[data-type="midi_player"] .module-title {
-      color: var(--omo-cyan);
+    .panel-style-moog .module-title {
+      color: #f0e6d2;
+      font-family: Georgia, 'Times New Roman', serif;
+      letter-spacing: 1px;
     }
 
-    .module-panel[data-type="acid303"] {
-      background: linear-gradient(180deg, #2b2e3e 0%, #181924 100%);
+    /* 2. Make Noise / Mutable — satin FR-4, ENIG gold, occult silkscreen */
+    .panel-style-makenois {
+      background-color: #111317;
+      background-image:
+        linear-gradient(135deg, rgba(212, 175, 55, 0.035) 25%, transparent 25%),
+        linear-gradient(225deg, rgba(212, 175, 55, 0.035) 25%, transparent 25%);
+      background-size: 16px 16px;
+      border: 1px solid #1c1e26;
+      border-top: 2px solid #d4af37;
+      box-shadow: inset 0 0 0 1px rgba(212, 175, 55, 0.06), 0 4px 12px rgba(0, 0, 0, 0.5);
+    }
+    .panel-style-makenois .module-header {
+      background: #0c0d11;
+      border-bottom: 1px solid #26231a;
+    }
+    .panel-style-makenois .module-title {
+      color: #d4af37;
+      letter-spacing: 1.2px;
+    }
+
+    /* 3. Roland Acid & Electro — brushed charcoal, 808/303 bright accents */
+    .panel-style-roland {
+      background-color: #26262c;
+      background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.05) 0%, rgba(0, 0, 0, 0.15) 100%);
+      border: 1px solid #101013;
       border-top: 2px solid var(--omo-yellow);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), inset 0 -1px 0 rgba(0, 0, 0, 0.5), 0 4px 12px rgba(0, 0, 0, 0.5);
     }
-    .module-panel[data-type="acid303"] .module-title {
+    .panel-style-roland .module-header {
+      background: #1c1c21;
+      border-bottom: 1px solid #101013;
+    }
+    .panel-style-roland .module-title {
       color: var(--omo-yellow);
+      font-weight: 800;
     }
 
-    .module-panel[data-type="percussion"] {
-      background: linear-gradient(180deg, #1f202b 0%, #13141d 100%);
-      border-top: 2px solid var(--omo-orange);
+    /* 4. Boutique DIY FR-4 — exposed copper runs, matte solder mask */
+    .panel-style-fr4 {
+      background-color: #0e1712;
+      background-image:
+        repeating-linear-gradient(90deg, rgba(180, 120, 60, 0.05) 0px, rgba(180, 120, 60, 0.05) 1px, transparent 1px, transparent 14px),
+        repeating-linear-gradient(0deg, rgba(180, 120, 60, 0.05) 0px, rgba(180, 120, 60, 0.05) 1px, transparent 1px, transparent 14px);
+      border: 1px solid #05100a;
+      border-top: 2px solid #b87a3c;
+      box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.6), 0 4px 12px rgba(0, 0, 0, 0.5);
     }
-    .module-panel[data-type="percussion"] .module-title {
-      color: var(--omo-orange);
+    .panel-style-fr4 .module-header {
+      background: #0a120e;
+      border-bottom: 1px solid #05100a;
     }
-
-    .module-panel[data-type="filter"] {
-      background: linear-gradient(180deg, #1d1f2d 0%, #13141e 100%);
-      border-top: 2px solid var(--omo-accent);
-    }
-    .module-panel[data-type="filter"] .module-title {
-      color: var(--omo-accent);
-    }
-
-    .module-panel[data-type="tape_warmer"] {
-      background: linear-gradient(180deg, #28221c 0%, #171412 100%);
-      border-top: 2px solid #ff9e64;
+    .panel-style-fr4 .module-title {
+      color: #e8dcc8;
+      letter-spacing: 0.6px;
     }
 
-    .module-panel[data-type="bytebeat"] {
-      background: linear-gradient(180deg, #131e17 0%, #0c140f 100%);
-      border-top: 2px solid var(--omo-ok);
+    /* 5. Euro Brushed Steel — hairline anodized aluminum, Doepfer/Intellijel */
+    .panel-style-euro {
+      background-color: #22242f;
+      background-image:
+        linear-gradient(90deg, rgba(255, 255, 255, 0.03) 0%, rgba(0, 0, 0, 0.08) 50%, rgba(255, 255, 255, 0.03) 100%),
+        repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255, 255, 255, 0.012) 3px, rgba(0, 0, 0, 0.03) 4px);
+      border-left: 1px solid rgba(255, 255, 255, 0.08);
+      border-right: 1px solid rgba(0, 0, 0, 0.5);
+      border-top: 2px solid #7b8296;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), inset 0 -1px 0 rgba(0, 0, 0, 0.55), 0 4px 12px rgba(0, 0, 0, 0.45);
     }
-    .module-panel[data-type="bytebeat"] .module-title {
-      color: var(--omo-ok);
+    .panel-style-euro .module-header {
+      background: #1c1e28;
+      border-bottom: 1px solid #33364a;
+    }
+    .panel-style-euro .module-title {
+      color: #c7cbdb;
+      font-weight: 700;
     }
 
-    .module-panel[data-type="mult"] {
-      background: linear-gradient(180deg, #1a1b26 0%, #12131b 100%);
-      border-top: 2px solid var(--omo-dim);
+    /* 6. Vintage Tape & Studio — warm beige, hammertone enamel, chrome */
+    .panel-style-vintage {
+      background-color: #221d17;
+      background-image: linear-gradient(180deg, rgba(255, 220, 170, 0.05) 0%, transparent 40%);
+      border: 1px solid #100d09;
+      border-top: 2px solid #c99a5b;
+      box-shadow: inset 0 1px 0 rgba(255, 225, 180, 0.08), 0 4px 12px rgba(0, 0, 0, 0.5);
+    }
+    .panel-style-vintage .module-header {
+      background: #1c1712;
+      border-bottom: 1px solid #100d09;
+    }
+    .panel-style-vintage .module-title {
+      color: #e8b978;
+      font-family: Georgia, serif;
+      letter-spacing: 0.6px;
     }
 
-    .module-panel[data-type="mixer"] {
-      background: linear-gradient(180deg, #191a25 0%, #101119 100%);
-      border-top: 2px solid #bb9af7;
+    /* 7. Digital Precision — stealth chassis, LED bargraphs, backlit badges */
+    .panel-style-digital {
+      background: linear-gradient(180deg, #171a28 0%, #0c0d14 100%);
+      border: 1px solid #262b40;
+      border-top: 2px solid var(--omo-cyan);
+      box-shadow: inset 0 0 0 1px rgba(125, 207, 255, 0.15), 0 6px 16px rgba(0, 0, 0, 0.55);
     }
-    .module-panel[data-type="mixer"] .module-title {
-      color: #bb9af7;
+    .panel-style-digital .module-header {
+      background: #10121c;
+      border-bottom: 1px solid #232840;
+    }
+    .panel-style-digital .module-title {
+      color: var(--omo-cyan);
+      font-weight: 700;
+      letter-spacing: 0.8px;
+    }
+
+    /* ---------------- Rotary Potentiometer & Knob Archetypes ---------------- */
+
+    /* Type A: Davies 1900h skirted pointer (Make Noise / Buchla) */
+    .knob.knob-davies {
+      width: 44px;
+      height: 44px;
+      background: radial-gradient(circle at 50% 50%, #1f212a 58%, #0f1015 62%, #2a2d3d 68%, #14151c 100%);
+      border: 1px solid #0a0b0e;
+    }
+    .knob-davies .knob-dial {
+      width: 26px;
+      height: 26px;
+      background: #171821;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+    }
+    .knob-davies .knob-pointer {
+      width: 3px;
+      height: 11px;
+      background: #ffffff;
+      top: 2px;
+      left: 11.5px;
+      box-shadow: 0 0 3px rgba(255, 255, 255, 0.7);
+    }
+
+    /* Type B: Moog fluted collet with spun-metal conical cap */
+    .knob.knob-moog {
+      width: 46px;
+      height: 46px;
+      background: repeating-conic-gradient(from 0deg, #181920 0deg 10deg, #282a36 10deg 20deg);
+      border: 2px solid #0e0f14;
+    }
+    .knob-moog .knob-dial {
+      width: 28px;
+      height: 28px;
+      background: conic-gradient(
+        from 180deg at 50% 50%,
+        #5a5e73 0deg, #9aa0b8 45deg, #323542 90deg, #9aa0b8 135deg,
+        #5a5e73 180deg, #9aa0b8 225deg, #323542 270deg, #9aa0b8 315deg, #5a5e73 360deg
+      );
+      box-shadow: inset 0 0 2px rgba(0, 0, 0, 0.8), 0 1px 3px rgba(0, 0, 0, 0.6);
+    }
+    .knob-moog .knob-pointer {
+      width: 2px;
+      height: 13px;
+      background: #f0e6d2;
+      top: 3px;
+      left: 13px;
+      box-shadow: none;
+    }
+
+    /* Type C: Sifam soft-touch ribbed cap (Mutable / modern Euro) */
+    .knob.knob-sifam {
+      width: 42px;
+      height: 42px;
+      background: #1e2029;
+      border: 2px solid #14151b;
+    }
+    .knob-sifam .knob-dial {
+      width: 26px;
+      height: 26px;
+      background: var(--knob-accent-color, var(--omo-accent));
+      box-shadow: inset 0 2px 3px rgba(255, 255, 255, 0.35), inset 0 -2px 3px rgba(0, 0, 0, 0.5);
+    }
+    .knob-sifam .knob-pointer {
+      width: 2.5px;
+      height: 10px;
+      background: #ffffff;
+      top: 3px;
+      left: 11.75px;
+    }
+
+    /* Type D: Slotted micro-trimpot (fine-tune / precision encoders) */
+    .knob.knob-trimpot {
+      width: 36px;
+      height: 36px;
+      background: radial-gradient(circle at 40% 40%, #7d8299 0%, #3a3d4d 100%);
+      border: 1px solid #1c1d24;
+      box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.4), 0 2px 4px rgba(0, 0, 0, 0.6);
+    }
+    .knob-trimpot .knob-dial {
+      width: 22px;
+      height: 22px;
+      background: #2a2c38;
+      box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.1);
+    }
+    .knob-trimpot .knob-pointer {
+      width: 1.5px;
+      height: 9px;
+      background: #e2e4f0;
+      top: 2px;
+      left: 10.25px;
+    }
+
+    /* ---------------- Silkscreen Signal Halos (jack surrounds) ---------------- */
+    .jack-wrap[data-signal="in"] .jack {
+      outline: 2px solid rgba(255, 255, 255, 0.22);
+      outline-offset: 3px;
+    }
+    .jack-wrap[data-signal="out"] .jack {
+      box-shadow: 0 0 0 3px #161720, 0 0 0 5px var(--omo-accent), 0 1px 4px rgba(0, 0, 0, 0.6);
+    }
+    .jack-wrap[data-signal="cv"] .jack {
+      outline: 2px dashed var(--omo-yellow);
+      outline-offset: 3px;
+    }
+    .jack-wrap[data-signal="gate"] .jack {
+      outline: 2px solid var(--omo-orange);
+      outline-offset: 3px;
+      border-radius: 4px;
+    }
+    .jack.in-jack {
+      outline: 2px solid rgba(255, 255, 255, 0.22);
+      outline-offset: 3px;
+    }
+
+    /* Threaded barrel collar between the knurled nut and the contact bore */
+    .jack-bezel {
+      position: absolute;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      border: 1px solid rgba(0, 0, 0, 0.8);
+      background: radial-gradient(circle, #1a1b24 0%, #303344 100%);
+    }
+
+    /* ---------------- Panel Screws: nylon anti-rash washers, natural angles ---------------- */
+    .screw {
+      box-shadow:
+        0 0 0 1.5px rgba(255, 255, 255, 0.1),
+        0 1px 3px rgba(0, 0, 0, 0.8),
+        inset 0 1px 1px rgba(255, 255, 255, 0.3);
+    }
+    .screw::after {
+      content: '';
+      position: absolute;
+      top: 2.5px;
+      left: 0.5px;
+      right: 0.5px;
+      height: 1px;
+      background: #090a0e;
+      box-shadow: 0 1px 0 rgba(255, 255, 255, 0.15);
+    }
+    .screw-tl { transform: rotate(18deg); }
+    .screw-tr { transform: rotate(-52deg); }
+    .screw-bl { transform: rotate(73deg); }
+    .screw-br { transform: rotate(-25deg); }
+    .module-panel:nth-child(2n) .screw-tl { transform: rotate(-38deg); }
+    .module-panel:nth-child(2n) .screw-tr { transform: rotate(41deg); }
+    .module-panel:nth-child(3n) .screw-bl { transform: rotate(112deg); }
+    .module-panel:nth-child(3n) .screw-br { transform: rotate(-67deg); }
+
+    /* Per-family knob accent tints for the Sifam soft-touch cap */
+    .panel-style-roland .knob-sifam { --knob-accent-color: var(--omo-orange); }
+    .panel-style-euro .knob-sifam { --knob-accent-color: #7b8296; }
+    .panel-style-vintage .knob-moog .knob-pointer { background: #e8b978; }
+
+    /* ---------------- Bespoke Faceplates ---------------- */
+    .module-panel[data-type="midi_player"] {
+      box-shadow: inset 0 0 0 1px rgba(122, 162, 247, 0.15), 0 6px 18px rgba(0, 0, 0, 0.6);
     }
 
     /* ---------------- Permanent Top Master Mixing Console Rack ---------------- */

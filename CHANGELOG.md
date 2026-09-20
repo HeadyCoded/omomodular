@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.7.3 — 2026-09-20
+- **Real-World Hardware Design Families (Procedural Faceplate Textures):**
+  - Classified all 43 module faceplates into 7 historical/boutique Eurorack manufacturing aesthetics via a new `styleClass` property in `MODULE_DEFINITIONS` (`ui.js`): **Moog Heritage** (wrinkle black powder-coat, cream serif), **Make Noise / Mutable** (satin FR-4, ENIG gold traces, occult diamond silkscreen), **Roland Acid & Electro** (brushed charcoal, 808/303 bright accents), **Boutique DIY FR-4** (exposed copper trace grid, matte solder mask), **Euro Brushed Steel** (hairline anodized aluminum, Doepfer/Intellijel), **Vintage Tape & Studio** (warm hammertone beige), and **Digital Precision** (stealth chassis, backlit cyan badges).
+  - All textures are 100% procedural CSS (gradients, box-shadows, `repeating-linear-gradient`/`conic-gradient` patterns) — zero images, zero network requests, minimal GPU cost.
+- **Real Knob Archetypes:** Added 4 physical potentiometer body styles (`knob-davies` skirted pointer, `knob-moog` spun-aluminum fluted collet with conic-gradient reflection, `knob-sifam` soft-touch ribbed cap with theme-adaptive accent color, `knob-trimpot` compact precision encoder), assigned per hardware family and rendered via `def.knobType` in `renderModule()`.
+- **Silkscreen Jack Signal Halos:** Jacks now carry a `data-signal` attribute (`in`, `out`, `cv`, `gate`) inferred from jack name/direction, each with a distinct outline treatment (solid ring for audio in, double-ring block for audio out, dashed ring for CV, squared badge for gate/clock/trig) matching real Eurorack faceplate conventions. Added a threaded `.jack-bezel` collar layer between the knurled nut and the contact bore.
+- **Panel Screw Realism:** Nylon anti-rash washer halos and natural pseudo-random screwdriver-slot rotation angles (varying per module via `nth-child`) instead of uniformly aligned screws.
+- Verified with the pytest suite (15 passed) and Playwright screenshots of the live rack: cable-to-jack coordinate math (`cables.js`, `getBoundingClientRect`-based) is unaffected since jack footprint dimensions were preserved.
+
 ## 0.7.2 — 2026-09-19
 - **Push-Docking Drawer Layout (Zero Occlusion):**
   - Converted `#rack-container` from an under-drawer background surface into a dynamically push-docked workspace: opening the left MIDI drawer smoothly shifts the rack (`margin-left: 380px; width: calc(100% - 380px);`) and opening the right Module catalog shifts the rack (`margin-right: 370px; width: calc(100% - 370px);`).
