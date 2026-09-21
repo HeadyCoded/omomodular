@@ -7,6 +7,7 @@ import os
 import shutil
 import socket
 import subprocess
+import sys
 from contextlib import closing
 from pathlib import Path
 from typing import Sequence
@@ -135,10 +136,16 @@ def dismiss_launch_osd() -> None:
 
 def spawn_detached(cmd: Sequence[str]) -> subprocess.Popen:
     """Spawn a subprocess fully detached from the parent terminal/session."""
+    # start_new_session is POSIX-only; Windows detaches via creationflags instead.
+    kwargs = (
+        {"creationflags": subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP}
+        if sys.platform == "win32"
+        else {"start_new_session": True}
+    )
     return subprocess.Popen(
         cmd,
         stdin=subprocess.DEVNULL,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
-        start_new_session=True,
+        **kwargs,
     )

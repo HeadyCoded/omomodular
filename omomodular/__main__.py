@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import os
 import sys
 import urllib.request
 from pathlib import Path
@@ -25,13 +26,39 @@ _BROWSERS = (
 _PROFILE_DIR = Path.home() / ".local/share/omomodular/browser"
 
 
+def _find_windows_browser() -> str | None:
+    """Search common Windows install locations (GUI apps rarely live on PATH)."""
+    program_files = os.environ.get("ProgramFiles", r"C:\Program Files")
+    program_files_x86 = os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)")
+    local_appdata = os.environ.get("LOCALAPPDATA", "")
+
+    candidates = [
+        Path(program_files) / "Google/Chrome/Application/chrome.exe",
+        Path(program_files_x86) / "Google/Chrome/Application/chrome.exe",
+        Path(program_files) / "BraveSoftware/Brave-Browser/Application/brave.exe",
+        # Edge ships on every Windows 10/11 install -- the guaranteed fallback.
+        Path(program_files) / "Microsoft/Edge/Application/msedge.exe",
+        Path(program_files_x86) / "Microsoft/Edge/Application/msedge.exe",
+    ]
+    if local_appdata:
+        candidates[1:1] = [
+            Path(local_appdata) / "Google/Chrome/Application/chrome.exe",
+            Path(local_appdata) / "BraveSoftware/Brave-Browser/Application/brave.exe",
+        ]
+
+    for candidate in candidates:
+        if candidate.is_file():
+            return str(candidate)
+    return None
+
+
 def _open_ui(url: str, open_browser: bool = True) -> None:
     """Open OmoModular inside a dedicated lightweight Chromium app window."""
     if not open_browser:
         return
     util.clean_stale_singleton(_PROFILE_DIR)
-    binary = util.which(*_BROWSERS)
-    if binary and any(tag in Path(binary).name for tag in ("chrom", "brave")):
+    binary = _find_windows_browser() if sys.platform == "win32" else util.which(*_BROWSERS)
+    if binary and any(tag in Path(binary).name.lower() for tag in ("chrom", "brave", "msedge")):
         _PROFILE_DIR.mkdir(parents=True, exist_ok=True)
         util.spawn_detached([
             binary,
@@ -45,6 +72,9 @@ def _open_ui(url: str, open_browser: bool = True) -> None:
         return
     if binary:
         util.spawn_detached([binary, url])
+        return
+    if sys.platform == "win32":
+        os.startfile(url)  # noqa: S606 - opens in the user's default browser
         return
     opener = util.which("xdg-open")
     if opener:
