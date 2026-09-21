@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -242,6 +244,73 @@ def test_api_sample_key_status(client):
     assert res.status_code == 200
     data = res.json()
     assert "has_key" in data
+
+
+def test_freesound_key_saved_not_world_readable(tmp_path, monkeypatch):
+    monkeypatch.setenv("HOME", str(tmp_path))
+    app = create_app(Config(config_dir=tmp_path / "omomodular"))
+    client = TestClient(app)
+    res = client.post("/api/samples/key", json={"key": "secret-token"})
+    assert res.status_code == 200
+
+    key_file = tmp_path / ".config/omomodular/freesound_key.txt"
+    assert key_file.is_file()
+    mode = key_file.stat().st_mode & 0o777
+    assert mode == 0o600, f"expected freesound_key.txt to be 0600, got {oct(mode)}"
+
+
+# --- Adversarial / path-traversal tests -------------------------------------
+# These target the two path-traversal bugs found in review: get_preset()/DELETE
+# building `patches_dir / f"{name}.json"` directly from user input, and
+# fetch_sample()'s `starter` param building `SAMPLE_DIR / starter` directly.
+# Both are now sanitized via Path(name).name before use.
+
+def test_get_preset_rejects_path_traversal(temp_cfg):
+    # A name that would escape patches_dir if naively joined must not resolve
+    # to anything outside it. Plant a sentinel file one level up to prove it.
+    sentinel = temp_cfg.config_dir / "sentinel.json"
+    sentinel.write_text('{"leaked": true}', "utf-8")
+
+    result = get_preset("../sentinel", temp_cfg.patches_dir)
+    assert result is None
+
+
+def test_api_delete_preset_rejects_path_traversal(client, temp_cfg):
+    # Starlette's default {name} path converter can't match "/" at all, so a
+    # "../"-bearing name never reaches this route in practice (it 404s/405s
+    # against the static-file catch-all instead). The sanitization in the
+    # handler is still correct defense-in-depth; this test just confirms
+    # traversal-shaped input never deletes anything outside patches_dir,
+    # regardless of which layer stops it.
+    sentinel = temp_cfg.config_dir / "sentinel.json"
+    sentinel.write_text('{"leaked": true}', "utf-8")
+
+    res = client.request("DELETE", "/api/presets/..%2Fsentinel")
+    assert res.status_code in (404, 405)
+    assert sentinel.is_file(), "traversal delete must not remove files outside patches_dir"
+
+
+def test_api_sample_download_rejects_starter_path_traversal(client):
+    res = client.get("/api/samples/download?starter=../../../../../../etc/passwd")
+    assert res.status_code == 404
+
+
+def test_api_sample_download_rejects_file_scheme(client):
+    # fetch_sample's `url` param must be restricted to http(s); a file:// URI
+    # must not be read off disk and served back.
+    res = client.get("/api/samples/download?url=file:///etc/passwd&name=passwd.wav")
+    assert res.status_code == 404
+
+
+def test_api_midi_search_does_not_hit_network(client):
+    # BitMidi search must not require live network access in tests.
+    with patch("omomodular.midi_service.urllib.request.urlopen") as mock_urlopen:
+        mock_urlopen.side_effect = AssertionError("test made a live network call")
+        res = client.get("/api/midi/search?q=Acid Techno 303")
+        assert res.status_code == 200
+        data = res.json()
+        assert "results" in data
+        assert len(data["results"]) >= 1  # matched from local starter catalog
 
 
 

@@ -4,12 +4,12 @@ build-backend = "hatchling.build"
 
 [project]
 name = "omomodular"
-version = "0.7.4"
+version = "0.7.5"
 description = "Minimalist Omarchy-themed Eurorack modular synthesizer and ambient drone workstation"
 readme = "README.md"
 requires-python = ">=3.12"
 license = { text = "MIT" }
-authors = [{ name = "xn0xinx" }]
+authors = [{ name = "HeadyCoded" }]
 
 dependencies = [
     "fastapi>=0.110",
@@ -28,14 +28,14 @@ dev = [
 omomodular = "omomodular.__main__:main"
 
 [project.urls]
-Homepage = "https://github.com/xn0xinx/omomodular"
+Homepage = "https://github.com/HeadyCoded/omomodular"
 
 [tool.hatch.build.targets.wheel]
 packages = ["omomodular"]
-
-[tool.hatch.build.targets.wheel.force-include]
-"omomodular/web" = "omomodular/web"
-"omomodular/midi" = "omomodular/midi"
+# web/, midi/, samples/ are git-tracked data files under omomodular/, so
+# hatchling's default VCS-based inclusion already ships them with the wheel.
+# (A `force-include` table here collides with that default inclusion --
+# hatchling refuses to add the same destination path twice.)
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

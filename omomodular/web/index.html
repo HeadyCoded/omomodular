@@ -3422,7 +3422,10 @@
               if (link) {
                 link.href = `theme.css?t=${Date.now()}`;
               }
-              setTimeout(() => cables.render(), 100);
+              setTimeout(() => {
+                cables.render();
+                ui.refreshScopeColor();
+              }, 100);
             }
           } catch (e) {}
         };

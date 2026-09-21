@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -36,10 +37,30 @@ class Config:
     def theme_file(self) -> Path:
         return self.config_dir / "theme.css"
 
+    @property
+    def toml_file(self) -> Path:
+        return self.config_dir / "config.toml"
+
 
 def load() -> Config:
-    """Load config and ensure required directories exist."""
+    """Load config from config.toml (if present) and ensure required directories exist."""
     cfg = Config()
     cfg.config_dir.mkdir(parents=True, exist_ok=True)
     cfg.patches_dir.mkdir(parents=True, exist_ok=True)
+
+    if cfg.toml_file.is_file():
+        try:
+            data = tomllib.loads(cfg.toml_file.read_text("utf-8"))
+        except (tomllib.TOMLDecodeError, OSError):
+            data = {}
+        server_data = data.get("server", {})
+        if "host" in server_data:
+            cfg.server.host = str(server_data["host"])
+        if "port" in server_data:
+            cfg.server.port = int(server_data["port"])
+        if "open_app" in server_data:
+            cfg.server.open_app = bool(server_data["open_app"])
+        if "browser" in server_data:
+            cfg.server.browser = str(server_data["browser"])
+
     return cfg

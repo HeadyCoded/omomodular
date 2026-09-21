@@ -130,7 +130,7 @@ def create_app(cfg: Config | None = None) -> FastAPI:
 
     @app.delete("/api/presets/{name}")
     async def delete_preset(name: str):
-        target = cfg.patches_dir / f"{name}.json"
+        target = cfg.patches_dir / f"{Path(name).name}.json"
         if target.is_file():
             target.unlink()
             return {"status": "deleted"}
@@ -187,6 +187,7 @@ def create_app(cfg: Config | None = None) -> FastAPI:
         key_file = Path.home() / ".config/omomodular/freesound_key.txt"
         key_file.parent.mkdir(parents=True, exist_ok=True)
         key_file.write_text(key, "utf-8")
+        key_file.chmod(0o600)
         return {"status": "saved", "has_key": bool(key)}
 
     @app.get("/theme.css")

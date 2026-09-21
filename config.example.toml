@@ -1,0 +1,8 @@
+# OmoModular config. Installed to ~/.config/omomodular/config.toml (mode 0600).
+# Any CLI flag (--port, --host, --no-open) overrides these values for that run.
+
+[server]
+host = "127.0.0.1"
+port = 8796
+open_app = true
+# browser = "chromium"

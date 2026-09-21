@@ -70,16 +70,19 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="OmoModular - Minimalist Eurorack ambient synthesizer for Omarchy."
     )
-    parser.add_argument("-p", "--port", type=int, default=8796, help="HTTP port (default: 8796)")
-    parser.add_argument("--host", type=str, default="127.0.0.1", help="Host to bind (default: 127.0.0.1)")
+    parser.add_argument("-p", "--port", type=int, default=None, help="HTTP port (default: 8796, or config.toml)")
+    parser.add_argument("--host", type=str, default=None, help="Host to bind (default: 127.0.0.1, or config.toml)")
     parser.add_argument("--no-open", action="store_true", help="Do not open browser window")
     parser.add_argument("-v", "--version", action="version", version=f"%(prog)s {__version__}")
 
     args = parser.parse_args()
     cfg = load_config()
-    cfg.server.port = args.port
-    cfg.server.host = args.host
-    cfg.server.open_app = not args.no_open
+    if args.port is not None:
+        cfg.server.port = args.port
+    if args.host is not None:
+        cfg.server.host = args.host
+    if args.no_open:
+        cfg.server.open_app = False
 
     url = f"http://{cfg.server.host}:{cfg.server.port}"
 

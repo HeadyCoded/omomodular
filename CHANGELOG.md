@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.7.5 — 2026-09-20
+- **Security audit & fixes** (Claude code-review pass, first since the app was built):
+  - Closed a live, confirmed arbitrary local file read: `/api/samples/download?url=file:///...` accepted `file://` URIs and served the contents back. `fetch_sample`'s `url` param is now restricted to `http(s)` schemes.
+  - Closed a live, confirmed path traversal: `/api/samples/download?starter=../../../etc/passwd` read arbitrary files off disk. `starter` (and the equivalent preset-name params in `get_preset`/`DELETE /api/presets/{name}`, not independently HTTP-reachable but sloppy at the function level) now sanitize via `Path(x).name`.
+  - Downloads (sample previews, MIDI files) now cap read size and total cache-dir size, with oldest-first eviction (`util.prune_cache_dir`), instead of growing unbounded.
+  - `freesound_key.txt` is now written `chmod 0600` instead of world-readable.
+  - `config.toml` (installed by `install.sh` since day one) is now actually parsed — `--port`/`--host`/`--no-open` CLI flags previously always clobbered it unconditionally, so it silently did nothing.
+  - Fixed the wheel packaging build: `omomodular/samples` was missing from `force-include`, so a real (non-editable) wheel build would ship without the 12 starter percussion samples.
+  - Added adversarial/security regression tests (`tests/test_api.py`, `tests/test_util.py`) covering all of the above; mocked the BitMidi search test off the live network.
+- **DSP engine fixes** (`omomodular/web/dsp.js`):
+  - Fixed a real resource leak: the 16-Step TR Drum Matrix leaked 5 running oscillators per instance forever (never stopped on module delete).
+  - Wired up the TR-Matrix "Accent" knob, which was dead (README claimed it worked; code never read the param).
+  - Debounced expensive main-thread buffer resynthesis (Reverb/Shimmer impulse response, Amen Break Slicer's 16-slice resynth) so dragging a knob doesn't block audio on every intermediate value.
+  - Replaced drifting `setTimeout`-chain scheduling (`now + interval`, re-anchored every call) with self-correcting fixed-schedule timing across all 12 tempo-driven sequenced modules — measured cumulative drift dropped from unbounded growth to under 2ms over 4 seconds / 38 steps. This is the root cause the app had previously worked around with a manual `[S] SYNC` button.
+  - Extracted a shared `clamp()` helper (mechanically replaced 172 duplicated inline clamp expressions) and a `wireDryWet()` factory (applied to Reverb/Shimmer).
+- **UI/interaction fixes** (`omomodular/web/ui.js`, `cables.js`, `index.html`):
+  - Escaped Freesound/BitMidi search-result titles before `innerHTML` interpolation (was a stored-XSS vector via a crafted sample/song name from either public API).
+  - Fixed module ID generation to be collision-proof (full timestamp + monotonic counter) instead of a ~28-minute-cycling 4-digit truncation.
+  - Cable-drag now repositions a persistent SVG drag-preview node instead of rebuilding the entire patch's SVG (and forcing a layout recalc) on every `mousemove` pixel.
+  - Oscilloscope no longer calls `getComputedStyle()` every animation frame forever; the theme color is cached and only re-read on an actual theme change.
+- Confirmed via live Playwright testing: all 15 factory presets load and run with zero console errors; full pytest suite (37 tests) green.
+
 ## 0.7.4 — 2026-09-20
 - **Omarchy Launch Feedback & Window Lifecycle Fix:**
   - Resolved stuck `Launching OmoModular…` toast OSD at screen bottom: added automatic launch OSD dismissal (`dismiss_launch_osd()`) via `omarchy-shell -q osd close` both upon initial window spawn and when re-focusing an active instance.

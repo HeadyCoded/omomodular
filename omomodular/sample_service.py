@@ -10,11 +10,15 @@ import wave
 from pathlib import Path
 from typing import Any
 
+from .util import prune_cache_dir
+
 SAMPLE_DIR = Path(__file__).parent / "samples"
 CACHE_DIR = SAMPLE_DIR / "downloads"
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
 USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0"
+MAX_DOWNLOAD_BYTES = 25 * 1024 * 1024  # 25MB: generous for a sample preview, bounds worst case
+MAX_CACHE_BYTES = 500 * 1024 * 1024  # 500MB total across cached previews
 
 
 def inspect_wav_info(file_path: Path) -> dict[str, Any]:
@@ -165,13 +169,17 @@ async def search_samples(query: str = "", category: str = "all", api_key: str | 
 async def fetch_sample(starter: str | None = None, url: str | None = None, name: str | None = None) -> Path | None:
     """Fetch sample by starter name or download external preview URL into cache."""
     if starter:
-        p = SAMPLE_DIR / starter
+        p = SAMPLE_DIR / Path(starter).name
         if p.is_file():
             return p
         return None
 
     if url:
+        if urllib.parse.urlparse(url).scheme not in ("http", "https"):
+            return None
+
         safe_name = "".join(c for c in (name or "sample.mp3") if c.isalnum() or c in (".", "-", "_")).strip()
+        safe_name = Path(safe_name or "sample.mp3").name
         cached = CACHE_DIR / safe_name
         if cached.is_file() and cached.stat().st_size > 0:
             return cached
@@ -182,7 +190,12 @@ async def fetch_sample(starter: str | None = None, url: str | None = None, name:
             try:
                 req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
                 with urllib.request.urlopen(req, timeout=8.0) as resp:
-                    cached.write_bytes(resp.read())
+                    data = resp.read(MAX_DOWNLOAD_BYTES + 1)
+                    if len(data) > MAX_DOWNLOAD_BYTES:
+                        print("Sample preview exceeded max download size, discarding:", url)
+                        return None
+                    cached.write_bytes(data)
+                    prune_cache_dir(CACHE_DIR, MAX_CACHE_BYTES)
                     return cached
             except Exception as e:
                 print("Failed to download sample preview:", e)

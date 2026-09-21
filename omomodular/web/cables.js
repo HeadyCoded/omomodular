@@ -68,7 +68,10 @@ class CableManager {
         x: e.clientX - rect.left,
         y: e.clientY - rect.top,
       };
-      this.render();
+      // Only reposition the drag-preview cable on mousemove, not a full
+      // rebuild of every existing cable in the patch (was causing layout
+      // thrashing on every pixel of movement).
+      this.renderDragPreview();
     });
 
     window.addEventListener('mouseup', (e) => {
@@ -323,6 +326,13 @@ class CableManager {
     this.svg.setAttribute('height', scrollH);
 
     this.svg.innerHTML = '';
+    // innerHTML='' above drops any previously-created persistent drag-preview
+    // nodes too; clear the cached refs so renderDragPreview() recreates them.
+    this._dragPreviewGroup = null;
+    this._dragPreviewCore = null;
+    this._dragPreviewPlug1 = null;
+    this._dragPreviewPlug2 = null;
+
     const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
     defs.innerHTML = `
       <filter id="cable-shadow" x="-30%" y="-30%" width="160%" height="180%">
@@ -394,20 +404,38 @@ class CableManager {
       this.svg.appendChild(group);
     }
 
-    // Render interactive drag preview cable
-    if (this.dragStart && this.dragCurrent) {
-      const d = this.calculateBezier(
-        this.dragStart.x,
-        this.dragStart.y,
-        this.dragCurrent.x,
-        this.dragCurrent.y
-      );
+    // Drag-preview cable is a persistent, separately-updated layer (see
+    // renderDragPreview) so it doesn't force a full rebuild every frame.
+    this.renderDragPreview();
+  }
 
+  // Repositions the in-progress drag-preview cable without touching the
+  // static cables already rendered by render(). Creates its persistent SVG
+  // nodes lazily on first use (or after a full render() cleared them).
+  renderDragPreview() {
+    if (!this.dragStart || !this.dragCurrent) {
+      if (this._dragPreviewGroup && this._dragPreviewGroup.parentNode) {
+        this._dragPreviewGroup.remove();
+      }
+      this._dragPreviewGroup = null;
+      this._dragPreviewCore = null;
+      this._dragPreviewPlug1 = null;
+      this._dragPreviewPlug2 = null;
+      return;
+    }
+
+    const d = this.calculateBezier(
+      this.dragStart.x,
+      this.dragStart.y,
+      this.dragCurrent.x,
+      this.dragCurrent.y
+    );
+
+    if (!this._dragPreviewGroup || !this._dragPreviewGroup.parentNode) {
       const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
       group.classList.add('cable-drag-preview');
 
       const corePath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-      corePath.setAttribute('d', d);
       corePath.setAttribute('fill', 'none');
       corePath.setAttribute('stroke', 'var(--omo-accent)');
       corePath.setAttribute('stroke-width', '4.5');
@@ -415,11 +443,26 @@ class CableManager {
       corePath.setAttribute('stroke-dasharray', '8, 4');
       group.appendChild(corePath);
 
-      this.renderPlug(group, this.dragStart.x, this.dragStart.y, 'var(--omo-accent)');
-      this.renderPlug(group, this.dragCurrent.x, this.dragCurrent.y, 'var(--omo-accent)');
+      const plug1 = this.renderPlug(group, this.dragStart.x, this.dragStart.y, 'var(--omo-accent)');
+      const plug2 = this.renderPlug(group, this.dragCurrent.x, this.dragCurrent.y, 'var(--omo-accent)');
 
       this.svg.appendChild(group);
+      this._dragPreviewGroup = group;
+      this._dragPreviewCore = corePath;
+      this._dragPreviewPlug1 = plug1;
+      this._dragPreviewPlug2 = plug2;
     }
+
+    this._dragPreviewCore.setAttribute('d', d);
+    this._setPlugPos(this._dragPreviewPlug1, this.dragStart.x, this.dragStart.y);
+    this._setPlugPos(this._dragPreviewPlug2, this.dragCurrent.x, this.dragCurrent.y);
+  }
+
+  _setPlugPos(plug, x, y) {
+    plug.outer.setAttribute('cx', x);
+    plug.outer.setAttribute('cy', y);
+    plug.inner.setAttribute('cx', x);
+    plug.inner.setAttribute('cy', y);
   }
 
   renderPlug(parentGroup, x, y, color) {
@@ -443,6 +486,7 @@ class CableManager {
     plugGroup.appendChild(inner);
 
     parentGroup.appendChild(plugGroup);
+    return { outer, inner };
   }
 }
 

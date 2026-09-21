@@ -3,6 +3,15 @@
  * Renders modular faceplates, rotary knobs, 3.5mm jacks, oscilloscope, and module drawer.
  */
 
+function escapeHtml(str) {
+  return String(str == null ? '' : str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 const MODULE_DEFINITIONS = {
   vco: {
     name: 'DUAL DRONE VCO',
@@ -850,6 +859,7 @@ class ModularRackUI {
     this.selectedModuleEl = null;
     this.selectedRowIdx = 0;
     this.modularRows = null;
+    this._moduleIdCounter = 0;
 
     this.mixerParams = {
       ch1_gain: 0.85, ch1_pan: 0.0, ch1_mute: false, ch1_solo: false,
@@ -2644,7 +2654,7 @@ class ModularRackUI {
     if (type === 'mixer') {
       return this.modulesState.find(m => m.id === 'mixer_1');
     }
-    const id = `${type}_${Date.now().toString(36).substr(-4)}`;
+    const id = `${type}_${Date.now().toString(36)}_${(this._moduleIdCounter++).toString(36)}`;
     const def = MODULE_DEFINITIONS[type];
     const params = {};
     for (const c of def.controls) {
@@ -3004,12 +3014,12 @@ class ModularRackUI {
 
         card.innerHTML = `
           <div class="sample-card-header">
-            <span class="sample-card-title" title="${item.title}">${item.title}</span>
+            <span class="sample-card-title" title="${escapeHtml(item.title)}">${escapeHtml(item.title)}</span>
             <span class="sample-cat-badge ${catClass}">${cat.toUpperCase()}</span>
           </div>
           <div class="sample-meta-row">
             <span class="sample-meta-tags">${metaTags}</span>
-            <span style="font-size:7px; color:var(--omo-dim);">${item.source || (isStarter ? 'Starter Kit' : 'Freesound CC0')}</span>
+            <span style="font-size:7px; color:var(--omo-dim);">${escapeHtml(item.source || (isStarter ? 'Starter Kit' : 'Freesound CC0'))}</span>
           </div>
           <div class="sample-card-actions">
             <button class="sample-audition-btn">&#9654; PLAY</button>
@@ -3290,7 +3300,7 @@ class ModularRackUI {
 
         card.innerHTML = `
           <div class="midi-card-header">
-            <span class="midi-card-title" title="${item.title}">${item.title}</span>
+            <span class="midi-card-title" title="${escapeHtml(item.title)}">${escapeHtml(item.title)}</span>
             ${sourceBadge}
           </div>
           <div class="midi-card-actions">
@@ -3674,6 +3684,11 @@ class ModularRackUI {
     if (window.onPatchModified) window.onPatchModified();
   }
 
+  refreshScopeColor() {
+    this._scopeColor = getComputedStyle(document.documentElement).getPropertyValue('--omo-cyan').trim() || '#7dcfff';
+    return this._scopeColor;
+  }
+
   startOscilloscope() {
     const canvas = document.getElementById('scope-canvas');
     if (!canvas) {
@@ -3683,6 +3698,7 @@ class ModularRackUI {
     const ctx = canvas.getContext('2d');
     const bufferLength = 1024;
     const dataArray = new Uint8Array(bufferLength);
+    this.refreshScopeColor();
 
     const draw = () => {
       requestAnimationFrame(draw);
@@ -3694,7 +3710,9 @@ class ModularRackUI {
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       ctx.lineWidth = 1.8;
-      ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--omo-cyan').trim() || '#7dcfff';
+      // Cached at init / on theme change instead of recomputed every frame
+      // (was forcing a style recalc 60x/sec regardless of theme state).
+      ctx.strokeStyle = this._scopeColor;
       ctx.beginPath();
 
       const sliceWidth = canvas.width / bufferLength;

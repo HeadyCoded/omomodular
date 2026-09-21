@@ -12,6 +12,24 @@ from pathlib import Path
 from typing import Sequence
 
 
+def prune_cache_dir(cache_dir: Path, max_bytes: int) -> None:
+    """Evict oldest files in cache_dir once its total size exceeds max_bytes."""
+    try:
+        files = sorted(cache_dir.glob("*"), key=lambda p: p.stat().st_mtime)
+    except OSError:
+        return
+    total = sum(f.stat().st_size for f in files if f.is_file())
+    for f in files:
+        if total <= max_bytes:
+            break
+        try:
+            size = f.stat().st_size
+            f.unlink()
+            total -= size
+        except OSError:
+            continue
+
+
 def which(*names: str) -> str | None:
     """Return absolute path to the first existing executable in names."""
     for n in names:

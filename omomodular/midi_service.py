@@ -10,11 +10,15 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
+from .util import prune_cache_dir
+
 MIDI_DIR = Path(__file__).parent / "midi"
 CACHE_DIR = MIDI_DIR / "downloads"
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
 USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0"
+MAX_DOWNLOAD_BYTES = 5 * 1024 * 1024  # 5MB: generous for a MIDI file, bounds worst case
+MAX_CACHE_BYTES = 100 * 1024 * 1024  # 100MB total across cached downloads
 
 
 def inspect_midi_header(file_path: Path) -> tuple[int, int]:
@@ -191,9 +195,12 @@ def _sync_fetch_slug(slug: str) -> Path | None:
 
     try:
         with urllib.request.urlopen(req_dl, timeout=8.0) as resp:
-            data = resp.read()
+            data = resp.read(MAX_DOWNLOAD_BYTES + 1)
+        if len(data) > MAX_DOWNLOAD_BYTES:
+            return None
         if data.startswith(b"MThd"):
             cache_file.write_bytes(data)
+            prune_cache_dir(CACHE_DIR, MAX_CACHE_BYTES)
             return cache_file
     except Exception:
         return None

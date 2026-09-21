@@ -3,6 +3,48 @@
  * Real-time synthesis, analog modeling, and dynamic patch routing.
  */
 
+function clamp(v, min, max) {
+  return Math.max(min, Math.min(max, v));
+}
+
+/**
+ * Self-correcting setTimeout scheduler for the step sequencers below. Plain
+ * `setTimeout(fn, interval)` chains drift because each call computes the
+ * next delay from "now" at fire time, which accumulates jitter; this instead
+ * tracks a fixed next-tick audio-clock target and schedules relative to it,
+ * so independent sequencers don't slowly drift apart. Falls back to a fresh
+ * `now + interval` target if the module hasn't ticked in over an interval
+ * (freshly started, or after resetClock()/a pause), so SYNC stays instant.
+ */
+function scheduleNextTick(mod, fn, intervalMs) {
+  const now = mod.ctx.currentTime;
+  const intervalSec = Math.max(0.001, intervalMs / 1000);
+  if (mod._nextTickTime == null || mod._nextTickTime < now - intervalSec) {
+    mod._nextTickTime = now + intervalSec;
+  } else {
+    mod._nextTickTime += intervalSec;
+  }
+  const delayMs = Math.max(0, (mod._nextTickTime - now) * 1000);
+  mod.timer = setTimeout(fn, delayMs);
+}
+
+/**
+ * Creates dry/wet gain nodes wired the way most modules here do it by hand:
+ * inputNode -> dryGain -> outputNode, wetGain -> outputNode, with gains set
+ * from `mix` (0 = fully dry, 1 = fully wet). The caller still connects its
+ * own wet-processing chain between inputNode and the returned wetGain.
+ */
+function wireDryWet(ctx, inputNode, outputNode, mix) {
+  const dryGain = ctx.createGain();
+  const wetGain = ctx.createGain();
+  dryGain.gain.setValueAtTime(1.0 - mix, ctx.currentTime);
+  wetGain.gain.setValueAtTime(mix, ctx.currentTime);
+  inputNode.connect(dryGain);
+  dryGain.connect(outputNode);
+  wetGain.connect(outputNode);
+  return { dryGain, wetGain };
+}
+
 class DspEngine {
   constructor() {
     this.ctx = null;
@@ -63,12 +105,12 @@ class DspEngine {
 
   setMasterVolume(val) {
     if (!this.ctx || this.isMuted) return;
-    const clamped = Math.max(0, Math.min(1.2, val));
+    const clamped = clamp(val, 0, 1.2);
     this.masterGain.gain.setTargetAtTime(clamped, this.ctx.currentTime, 0.02);
   }
 
   setMasterBpm(bpm) {
-    this.masterBpm = Math.max(30, Math.min(260, Math.round(bpm)));
+    this.masterBpm = clamp(Math.round(bpm), 30, 260);
     return this.masterBpm;
   }
 
@@ -85,12 +127,12 @@ class DspEngine {
     let effRatio = typeof ratio === 'number' ? ratio : (parseFloat(ratio) || 1.0);
 
     if (mod.type === 'percussion' || mod.type === 'acid303' || mod.type === 'sequencer' || mod.type === 'amen_slicer' || mod.type === 'quad_euclid' || mod.type === 'tr_matrix_seq') {
-      const calculatedBpm = Math.max(30, Math.min(240, Math.round(baseBpm * effRatio)));
+      const calculatedBpm = clamp(Math.round(baseBpm * effRatio), 30, 240);
       mod.setParam('bpm', calculatedBpm);
       return { type: 'bpm', value: calculatedBpm };
     } else if (mod.type === 'midi_player') {
       const midiBpm = (mod.midiData && mod.midiData.bpm) ? mod.midiData.bpm : baseBpm;
-      const calculatedRate = Math.max(0.1, Math.min(4.0, (baseBpm / midiBpm) * effRatio));
+      const calculatedRate = clamp((baseBpm / midiBpm) * effRatio, 0.1, 4.0);
       mod.setParam('rate', calculatedRate);
       return { type: 'rate', value: calculatedRate };
     }
@@ -441,7 +483,7 @@ class VcoModule {
   setParam(name, val) {
     const now = this.ctx.currentTime;
     if (name === 'freq1') {
-      const f = Math.max(10, Math.min(2000, val));
+      const f = clamp(val, 10, 2000);
       this.osc1.frequency.setTargetAtTime(f, now, 0.02);
       this.osc2.frequency.setTargetAtTime(f, now, 0.02);
       this.subOsc.frequency.setTargetAtTime(f / 2, now, 0.02);
@@ -452,7 +494,7 @@ class VcoModule {
     } else if (name === 'wave2') {
       this.osc2.type = val;
     } else if (name === 'subLevel') {
-      this.subGain.gain.setTargetAtTime(Math.max(0, Math.min(1, val)), now, 0.02);
+      this.subGain.gain.setTargetAtTime(clamp(val, 0, 1), now, 0.02);
     } else if (name === 'fmDepth') {
       this.fmGain.gain.setTargetAtTime(Math.max(0, val) * 200, now, 0.02);
     } else if (name === 'drift') {
@@ -541,7 +583,7 @@ class NoiseModule {
   setParam(name, val) {
     const now = this.ctx.currentTime;
     if (name === 'level') {
-      this.outGain.gain.setTargetAtTime(Math.max(0, Math.min(1.0, val)), now, 0.02);
+      this.outGain.gain.setTargetAtTime(clamp(val, 0, 1.0), now, 0.02);
     } else if (name === 'color') {
       if (val !== this.currentColor) {
         this.currentColor = val;
@@ -617,11 +659,11 @@ class FilterModule {
   setParam(name, val) {
     const now = this.ctx.currentTime;
     if (name === 'cutoff') {
-      const f = Math.max(20, Math.min(18000, val));
+      const f = clamp(val, 20, 18000);
       this.filter1.frequency.setTargetAtTime(f, now, 0.02);
       this.filter2.frequency.setTargetAtTime(f, now, 0.02);
     } else if (name === 'resonance') {
-      const q = Math.max(0.1, Math.min(25, val));
+      const q = clamp(val, 0.1, 25);
       this.filter1.Q.setTargetAtTime(q, now, 0.02);
       this.filter2.Q.setTargetAtTime(q * 0.7, now, 0.02);
     } else if (name === 'mode') {
@@ -696,13 +738,13 @@ class WavefolderModule {
   setParam(name, val) {
     const now = this.ctx.currentTime;
     if (name === 'folds') {
-      this.folds = Math.max(0.5, Math.min(8.0, val));
+      this.folds = clamp(val, 0.5, 8.0);
       this.updateCurve();
     } else if (name === 'drive') {
-      this.drive = Math.max(0.5, Math.min(6.0, val));
+      this.drive = clamp(val, 0.5, 6.0);
       this.updateCurve();
     } else if (name === 'mix') {
-      const m = Math.max(0, Math.min(1, val));
+      const m = clamp(val, 0, 1);
       this.wetGain.gain.setTargetAtTime(m, now, 0.02);
       this.dryGain.gain.setTargetAtTime(1 - m, now, 0.02);
     }
@@ -767,9 +809,9 @@ class BitcrusherModule {
 
   setParam(name, val) {
     if (name === 'bits') {
-      this.bits = Math.max(2, Math.min(16, Math.round(val)));
+      this.bits = clamp(Math.round(val), 2, 16);
     } else if (name === 'rateReduction') {
-      this.rateReduction = Math.max(1, Math.min(32, Math.round(val)));
+      this.rateReduction = clamp(Math.round(val), 1, 32);
     }
   }
 
@@ -845,18 +887,18 @@ class DelayModule {
   setParam(name, val) {
     const now = this.ctx.currentTime;
     if (name === 'time') {
-      const sec = Math.max(0.01, Math.min(2.5, val / 1000.0));
+      const sec = clamp(val / 1000.0, 0.01, 2.5);
       this.delayNode.delayTime.setTargetAtTime(sec, now, 0.04);
     } else if (name === 'feedback') {
-      const fb = Math.max(0, Math.min(0.95, val));
+      const fb = clamp(val, 0, 0.95);
       this.feedbackNode.gain.setTargetAtTime(fb, now, 0.02);
     } else if (name === 'damping') {
-      const d = Math.max(200, Math.min(16000, val));
+      const d = clamp(val, 200, 16000);
       this.dampingFilter.frequency.setTargetAtTime(d, now, 0.02);
     } else if (name === 'flutter') {
       this.flutterGain.gain.setTargetAtTime(Math.max(0, val) * 0.003, now, 0.02);
     } else if (name === 'mix') {
-      const m = Math.max(0, Math.min(1, val));
+      const m = clamp(val, 0, 1);
       this.wetGain.gain.setTargetAtTime(m, now, 0.02);
       this.dryGain.gain.setTargetAtTime(1 - m, now, 0.02);
     }
@@ -889,8 +931,6 @@ class ReverbModule {
     this.type = 'reverb';
 
     this.inputNode = ctx.createGain();
-    this.dryGain = ctx.createGain();
-    this.wetGain = ctx.createGain();
     this.outGain = ctx.createGain();
 
     this.convolver = ctx.createConvolver();
@@ -898,20 +938,17 @@ class ReverbModule {
     this.generateImpulseResponse(this.decay);
 
     const mix = params.mix !== undefined ? params.mix : 0.6;
-    this.wetGain.gain.setValueAtTime(mix, ctx.currentTime);
-    this.dryGain.gain.setValueAtTime(1.0 - mix, ctx.currentTime);
+    const { dryGain, wetGain } = wireDryWet(ctx, this.inputNode, this.outGain, mix);
+    this.dryGain = dryGain;
+    this.wetGain = wetGain;
 
-    this.inputNode.connect(this.dryGain);
     this.inputNode.connect(this.convolver);
     this.convolver.connect(this.wetGain);
-
-    this.dryGain.connect(this.outGain);
-    this.wetGain.connect(this.outGain);
   }
 
   generateImpulseResponse(duration) {
     const rate = this.ctx.sampleRate;
-    const length = Math.floor(rate * Math.max(0.5, Math.min(12.0, duration)));
+    const length = Math.floor(rate * clamp(duration, 0.5, 12.0));
     const impulse = this.ctx.createBuffer(2, length, rate);
     const left = impulse.getChannelData(0);
     const right = impulse.getChannelData(1);
@@ -929,10 +966,13 @@ class ReverbModule {
   setParam(name, val) {
     const now = this.ctx.currentTime;
     if (name === 'decay') {
-      this.decay = Math.max(0.5, Math.min(12.0, val));
-      this.generateImpulseResponse(this.decay);
+      this.decay = clamp(val, 0.5, 12.0);
+      // generateImpulseResponse resynthesizes a multi-second buffer on the
+      // main thread; debounce so a knob drag doesn't fire it on every tick.
+      clearTimeout(this._irDebounce);
+      this._irDebounce = setTimeout(() => this.generateImpulseResponse(this.decay), 100);
     } else if (name === 'mix') {
-      const m = Math.max(0, Math.min(1, val));
+      const m = clamp(val, 0, 1);
       this.wetGain.gain.setTargetAtTime(m, now, 0.02);
       this.dryGain.gain.setTargetAtTime(1 - m, now, 0.02);
     }
@@ -947,6 +987,7 @@ class ReverbModule {
   }
 
   dispose() {
+    clearTimeout(this._irDebounce);
     try {
       this.inputNode.disconnect();
       this.convolver.disconnect();
@@ -1016,12 +1057,12 @@ class MixerModule {
     const now = this.ctx.currentTime;
     for (let i = 1; i <= this.channelCount; i++) {
       if (name === `ch${i}_gain`) {
-        const clamped = Math.max(0, Math.min(1.5, parseFloat(val) || 0));
+        const clamped = clamp(parseFloat(val) || 0, 0, 1.5);
         this.channels[i - 1].gainVal = clamped;
         this.updateGains();
         return;
       } else if (name === `ch${i}_pan`) {
-        const clamped = Math.max(-1, Math.min(1, parseFloat(val) || 0));
+        const clamped = clamp(parseFloat(val) || 0, -1, 1);
         this.channels[i - 1].panVal = clamped;
         this.channels[i - 1].panner.pan.setTargetAtTime(clamped, now, 0.02);
         return;
@@ -1143,10 +1184,10 @@ class SwarmModule {
   setParam(name, val) {
     const now = this.ctx.currentTime;
     if (name === 'freq') {
-      this.baseFreq = Math.max(20, Math.min(1000, val));
+      this.baseFreq = clamp(val, 20, 1000);
       this.updatePitches();
     } else if (name === 'spread') {
-      this.spread = Math.max(0, Math.min(50, val));
+      this.spread = clamp(val, 0, 50);
       this.updatePitches();
     } else if (name === 'chord') {
       this.chordMode = val;
@@ -1157,7 +1198,7 @@ class SwarmModule {
         v.osc.type = val;
       }
     } else if (name === 'subLevel') {
-      this.subGain.gain.setTargetAtTime(Math.max(0, Math.min(1, val)), now, 0.02);
+      this.subGain.gain.setTargetAtTime(clamp(val, 0, 1), now, 0.02);
     }
   }
 
@@ -1241,7 +1282,7 @@ class GranularModule {
   spawnGrain() {
     if (!this.ctx || this.ctx.state !== 'running') return;
     try {
-      const grainDur = Math.max(0.02, Math.min(0.4, this.grainSize));
+      const grainDur = clamp(this.grainSize, 0.02, 0.4);
       const grainNode = this.ctx.createBufferSource();
       grainNode.buffer = this.buffer;
 
@@ -1268,13 +1309,13 @@ class GranularModule {
   setParam(name, val) {
     const now = this.ctx.currentTime;
     if (name === 'grainSize') {
-      this.grainSize = Math.max(0.02, Math.min(0.4, val));
+      this.grainSize = clamp(val, 0.02, 0.4);
     } else if (name === 'density') {
-      this.density = Math.max(1, Math.min(30, val));
+      this.density = clamp(val, 1, 30);
     } else if (name === 'pitchSpray') {
-      this.pitchSpray = Math.max(0, Math.min(1.0, val));
+      this.pitchSpray = clamp(val, 0, 1.0);
     } else if (name === 'mix') {
-      const m = Math.max(0, Math.min(1, val));
+      const m = clamp(val, 0, 1);
       this.wetGain.gain.setTargetAtTime(m, now, 0.02);
       this.dryGain.gain.setTargetAtTime(1 - m, now, 0.02);
     }
@@ -1349,16 +1390,16 @@ class ResonatorModule {
   setParam(name, val) {
     const now = this.ctx.currentTime;
     if (name === 'freq') {
-      this.freq = Math.max(25, Math.min(1200, val));
+      this.freq = clamp(val, 25, 1200);
       this.delayNode.delayTime.setTargetAtTime(1.0 / this.freq, now, 0.02);
     } else if (name === 'decay') {
-      const fb = Math.max(0.5, Math.min(0.995, val));
+      const fb = clamp(val, 0.5, 0.995);
       this.feedbackNode.gain.setTargetAtTime(fb, now, 0.02);
     } else if (name === 'damping') {
-      const d = Math.max(200, Math.min(14000, val));
+      const d = clamp(val, 200, 14000);
       this.dampFilter.frequency.setTargetAtTime(d, now, 0.02);
     } else if (name === 'mix') {
-      const m = Math.max(0, Math.min(1, val));
+      const m = clamp(val, 0, 1);
       this.wetGain.gain.setTargetAtTime(m, now, 0.02);
       this.dryGain.gain.setTargetAtTime(1 - m, now, 0.02);
     }
@@ -1424,7 +1465,7 @@ class FormantModule {
       [500, 900],
       [300, 700],
     ];
-    const clamped = Math.max(1, Math.min(5, this.vowelVal));
+    const clamped = clamp(this.vowelVal, 1, 5);
     const idx = Math.floor(clamped) - 1;
     const nextIdx = Math.min(4, idx + 1);
     const frac = clamped - (idx + 1);
@@ -1443,7 +1484,7 @@ class FormantModule {
       this.vowelVal = val;
       this.updateVowel();
     } else if (name === 'resonance') {
-      this.q = Math.max(1.0, Math.min(25.0, val));
+      this.q = clamp(val, 1.0, 25.0);
       this.filter1.Q.setTargetAtTime(this.q, now, 0.02);
       this.filter2.Q.setTargetAtTime(this.q, now, 0.02);
     }
@@ -1531,15 +1572,15 @@ class ChorusModule {
   setParam(name, val) {
     const now = this.ctx.currentTime;
     if (name === 'rate') {
-      const r = Math.max(0.05, Math.min(8.0, val));
+      const r = clamp(val, 0.05, 8.0);
       this.lfoL.frequency.setTargetAtTime(r, now, 0.02);
       this.lfoR.frequency.setTargetAtTime(r, now, 0.02);
     } else if (name === 'depth') {
-      const d = Math.max(0, Math.min(1.0, val));
+      const d = clamp(val, 0, 1.0);
       this.gainL.gain.setTargetAtTime(d * 0.006, now, 0.02);
       this.gainR.gain.setTargetAtTime(d * 0.006, now, 0.02);
     } else if (name === 'mix') {
-      const m = Math.max(0, Math.min(1, val));
+      const m = clamp(val, 0, 1);
       this.wetGain.gain.setTargetAtTime(m, now, 0.02);
       this.dryGain.gain.setTargetAtTime(1 - m, now, 0.02);
     }
@@ -1621,13 +1662,13 @@ class PhaserModule {
   setParam(name, val) {
     const now = this.ctx.currentTime;
     if (name === 'rate') {
-      this.lfo.frequency.setTargetAtTime(Math.max(0.05, Math.min(6.0, val)), now, 0.02);
+      this.lfo.frequency.setTargetAtTime(clamp(val, 0.05, 6.0), now, 0.02);
     } else if (name === 'depth') {
-      this.lfoGain.gain.setTargetAtTime(Math.max(0, Math.min(1.0, val)) * 700, now, 0.02);
+      this.lfoGain.gain.setTargetAtTime(clamp(val, 0, 1.0) * 700, now, 0.02);
     } else if (name === 'feedback') {
-      this.feedback.gain.setTargetAtTime(Math.max(0, Math.min(0.9, val)), now, 0.02);
+      this.feedback.gain.setTargetAtTime(clamp(val, 0, 0.9), now, 0.02);
     } else if (name === 'mix') {
-      const m = Math.max(0, Math.min(1, val));
+      const m = clamp(val, 0, 1);
       this.wetGain.gain.setTargetAtTime(m, now, 0.02);
       this.dryGain.gain.setTargetAtTime(1 - m, now, 0.02);
     }
@@ -1691,12 +1732,12 @@ class RingModModule {
   setParam(name, val) {
     const now = this.ctx.currentTime;
     if (name === 'freq') {
-      const f = Math.max(1.0, Math.min(2500.0, val));
+      const f = clamp(val, 1.0, 2500.0);
       this.carrier.frequency.setTargetAtTime(f, now, 0.02);
     } else if (name === 'shape') {
       this.carrier.type = val;
     } else if (name === 'mix') {
-      const m = Math.max(0, Math.min(1, val));
+      const m = clamp(val, 0, 1);
       this.wetGain.gain.setTargetAtTime(m, now, 0.02);
       this.dryGain.gain.setTargetAtTime(1 - m, now, 0.02);
     }
@@ -1750,9 +1791,9 @@ class AutoPanModule {
   setParam(name, val) {
     const now = this.ctx.currentTime;
     if (name === 'rate') {
-      this.lfo.frequency.setTargetAtTime(Math.max(0.1, Math.min(15.0, val)), now, 0.02);
+      this.lfo.frequency.setTargetAtTime(clamp(val, 0.1, 15.0), now, 0.02);
     } else if (name === 'depth') {
-      this.lfoGain.gain.setTargetAtTime(Math.max(0, Math.min(1.0, val)), now, 0.02);
+      this.lfoGain.gain.setTargetAtTime(clamp(val, 0, 1.0), now, 0.02);
     } else if (name === 'shape') {
       this.lfo.type = val;
     }
@@ -1835,14 +1876,14 @@ class WavetableModule {
   setParam(name, val) {
     const now = this.ctx.currentTime;
     if (name === 'freq') {
-      this.freq = Math.max(20, Math.min(1200, val));
+      this.freq = clamp(val, 20, 1200);
       this.osc.frequency.setTargetAtTime(this.freq, now, 0.02);
       this.subOsc.frequency.setTargetAtTime(this.freq / 2, now, 0.02);
     } else if (name === 'table') {
       this.tableType = val;
       this.updateWave();
     } else if (name === 'subLevel') {
-      this.subGain.gain.setTargetAtTime(Math.max(0, Math.min(1, val)), now, 0.02);
+      this.subGain.gain.setTargetAtTime(clamp(val, 0, 1), now, 0.02);
     }
   }
 
@@ -1912,18 +1953,18 @@ class FmQuadModule {
   setParam(name, val) {
     const now = this.ctx.currentTime;
     if (name === 'freq') {
-      this.baseFreq = Math.max(20, Math.min(1000, val));
+      this.baseFreq = clamp(val, 20, 1000);
       this.op1.frequency.setTargetAtTime(this.baseFreq, now, 0.02);
       this.op2.frequency.setTargetAtTime(this.baseFreq * this.ratio2, now, 0.02);
       this.op3.frequency.setTargetAtTime(this.baseFreq * this.ratio3, now, 0.02);
     } else if (name === 'ratio2') {
-      this.ratio2 = Math.max(0.25, Math.min(12, val));
+      this.ratio2 = clamp(val, 0.25, 12);
       this.op2.frequency.setTargetAtTime(this.baseFreq * this.ratio2, now, 0.02);
     } else if (name === 'ratio3') {
-      this.ratio3 = Math.max(0.25, Math.min(12, val));
+      this.ratio3 = clamp(val, 0.25, 12);
       this.op3.frequency.setTargetAtTime(this.baseFreq * this.ratio3, now, 0.02);
     } else if (name === 'index') {
-      this.depth = Math.max(0, Math.min(2.0, val));
+      this.depth = clamp(val, 0, 2.0);
       this.mod2Gain.gain.setTargetAtTime(this.depth * 300, now, 0.02);
       this.mod3Gain.gain.setTargetAtTime(this.depth * 150, now, 0.02);
     }
@@ -2076,20 +2117,21 @@ class PercussionModule {
 
     this.currentStep = (this.currentStep + 1) % 16;
     const stepIntervalMs = Math.floor((60000 / this.bpm) / 4); // 16th notes
-    this.timer = setTimeout(() => this.runStep(), stepIntervalMs);
+    scheduleNextTick(this, () => this.runStep(), stepIntervalMs);
   }
 
   resetClock(now = null) {
     clearTimeout(this.timer);
+    this._nextTickTime = null;
     this.currentStep = 0;
     this.runStep(now || this.ctx.currentTime);
   }
 
   setParam(name, val) {
     if (name === 'bpm') {
-      this.bpm = Math.max(30, Math.min(240, Math.round(val)));
+      this.bpm = clamp(Math.round(val), 30, 240);
     } else if (name === 'decay') {
-      this.decay = Math.max(0.05, Math.min(1.2, val));
+      this.decay = clamp(val, 0.05, 1.2);
     } else if (name === 'mode') {
       this.mode = val;
     } else if (name === 'pattern') {
@@ -2177,11 +2219,12 @@ class Acid303Module {
 
     this.currentStep = (this.currentStep + 1) % 16;
     const stepIntervalMs = Math.floor((60000 / this.bpm) / 4);
-    this.timer = setTimeout(() => this.runStep(), stepIntervalMs);
+    scheduleNextTick(this, () => this.runStep(), stepIntervalMs);
   }
 
   resetClock(now = null) {
     clearTimeout(this.timer);
+    this._nextTickTime = null;
     this.currentStep = 0;
     this.runStep(now || this.ctx.currentTime);
   }
@@ -2189,14 +2232,14 @@ class Acid303Module {
   setParam(name, val) {
     const now = this.ctx.currentTime;
     if (name === 'bpm') {
-      this.bpm = Math.max(30, Math.min(240, Math.round(val)));
+      this.bpm = clamp(Math.round(val), 30, 240);
     } else if (name === 'cutoff') {
-      this.cutoff = Math.max(40, Math.min(8000, val));
+      this.cutoff = clamp(val, 40, 8000);
     } else if (name === 'resonance') {
-      this.res = Math.max(0.5, Math.min(24, val));
+      this.res = clamp(val, 0.5, 24);
       this.filter.Q.setTargetAtTime(this.res, now, 0.02);
     } else if (name === 'envMod') {
-      this.envMod = Math.max(0, Math.min(1, val));
+      this.envMod = clamp(val, 0, 1);
     } else if (name === 'wave') {
       this.osc.type = val;
     }
@@ -2258,7 +2301,7 @@ class Eq7Module {
     for (let i = 0; i < this.frequencies.length; i++) {
       const f = this.frequencies[i];
       if (name === `b_${f}`) {
-        this.filters[i].gain.setTargetAtTime(Math.max(-14, Math.min(14, val)), now, 0.02);
+        this.filters[i].gain.setTargetAtTime(clamp(val, -14, 14), now, 0.02);
       }
     }
   }
@@ -2321,13 +2364,13 @@ class CombModule {
   setParam(name, val) {
     const now = this.ctx.currentTime;
     if (name === 'freq') {
-      this.freq = Math.max(30, Math.min(1500, val));
+      this.freq = clamp(val, 30, 1500);
       this.delayNode.delayTime.setTargetAtTime(1.0 / this.freq, now, 0.02);
     } else if (name === 'feedback') {
-      this.feedback = Math.max(0, Math.min(0.98, val));
+      this.feedback = clamp(val, 0, 0.98);
       this.fbGain.gain.setTargetAtTime(this.feedback, now, 0.02);
     } else if (name === 'mix') {
-      const m = Math.max(0, Math.min(1, val));
+      const m = clamp(val, 0, 1);
       this.wetGain.gain.setTargetAtTime(m, now, 0.02);
       this.dryGain.gain.setTargetAtTime(1 - m, now, 0.02);
     }
@@ -2377,11 +2420,11 @@ class CompressorModule {
   setParam(name, val) {
     const now = this.ctx.currentTime;
     if (name === 'threshold') {
-      this.comp.threshold.setTargetAtTime(Math.max(-50, Math.min(0, val)), now, 0.02);
+      this.comp.threshold.setTargetAtTime(clamp(val, -50, 0), now, 0.02);
     } else if (name === 'ratio') {
-      this.comp.ratio.setTargetAtTime(Math.max(1, Math.min(20, val)), now, 0.02);
+      this.comp.ratio.setTargetAtTime(clamp(val, 1, 20), now, 0.02);
     } else if (name === 'makeup') {
-      this.makeup.gain.setTargetAtTime(Math.max(0.5, Math.min(3.0, val)), now, 0.02);
+      this.makeup.gain.setTargetAtTime(clamp(val, 0.5, 3.0), now, 0.02);
     }
   }
 
@@ -2451,12 +2494,12 @@ class FuzzModule {
   setParam(name, val) {
     const now = this.ctx.currentTime;
     if (name === 'gain') {
-      this.fuzzGain = Math.max(1.0, Math.min(25.0, val));
+      this.fuzzGain = clamp(val, 1.0, 25.0);
       this.updateFuzzCurve();
     } else if (name === 'tone') {
-      this.toneFilter.frequency.setTargetAtTime(Math.max(400, Math.min(12000, val)), now, 0.02);
+      this.toneFilter.frequency.setTargetAtTime(clamp(val, 400, 12000), now, 0.02);
     } else if (name === 'mix') {
-      const m = Math.max(0, Math.min(1, val));
+      const m = clamp(val, 0, 1);
       this.wetGain.gain.setTargetAtTime(m, now, 0.02);
       this.dryGain.gain.setTargetAtTime(1 - m, now, 0.02);
     }
@@ -2488,13 +2531,16 @@ class ShimmerModule {
     this.type = 'shimmer';
 
     this.inputNode = ctx.createGain();
-    this.dryGain = ctx.createGain();
-    this.wetGain = ctx.createGain();
     this.outGain = ctx.createGain();
 
     this.convolver = ctx.createConvolver();
     this.decay = params.decay || 8.0;
     this.generateShimmerImpulse(this.decay);
+
+    const mix = params.mix !== undefined ? params.mix : 0.75;
+    const { dryGain, wetGain } = wireDryWet(ctx, this.inputNode, this.outGain, mix);
+    this.dryGain = dryGain;
+    this.wetGain = wetGain;
 
     // Subtle pitch harmonic shimmer feed
     this.shimmerOsc = ctx.createOscillator();
@@ -2506,21 +2552,13 @@ class ShimmerModule {
     this.shimmerGain.connect(this.wetGain);
     this.shimmerOsc.start();
 
-    this.inputNode.connect(this.dryGain);
     this.inputNode.connect(this.convolver);
     this.convolver.connect(this.wetGain);
-
-    const mix = params.mix !== undefined ? params.mix : 0.75;
-    this.wetGain.gain.setValueAtTime(mix, ctx.currentTime);
-    this.dryGain.gain.setValueAtTime(1 - mix, ctx.currentTime);
-
-    this.dryGain.connect(this.outGain);
-    this.wetGain.connect(this.outGain);
   }
 
   generateShimmerImpulse(duration) {
     const rate = this.ctx.sampleRate;
-    const len = Math.floor(rate * Math.max(1, Math.min(14, duration)));
+    const len = Math.floor(rate * clamp(duration, 1, 14));
     const buf = this.ctx.createBuffer(2, len, rate);
     const l = buf.getChannelData(0);
     const r = buf.getChannelData(1);
@@ -2536,10 +2574,13 @@ class ShimmerModule {
   setParam(name, val) {
     const now = this.ctx.currentTime;
     if (name === 'decay') {
-      this.decay = Math.max(1.0, Math.min(14.0, val));
-      this.generateShimmerImpulse(this.decay);
+      this.decay = clamp(val, 1.0, 14.0);
+      // generateShimmerImpulse resynthesizes a multi-second buffer on the
+      // main thread; debounce so a knob drag doesn't fire it on every tick.
+      clearTimeout(this._irDebounce);
+      this._irDebounce = setTimeout(() => this.generateShimmerImpulse(this.decay), 100);
     } else if (name === 'mix') {
-      const m = Math.max(0, Math.min(1, val));
+      const m = clamp(val, 0, 1);
       this.wetGain.gain.setTargetAtTime(m, now, 0.02);
       this.dryGain.gain.setTargetAtTime(1 - m, now, 0.02);
     }
@@ -2554,6 +2595,7 @@ class ShimmerModule {
   }
 
   dispose() {
+    clearTimeout(this._irDebounce);
     try {
       this.shimmerOsc.stop();
       this.inputNode.disconnect();
@@ -2595,18 +2637,19 @@ class SequencerModule {
 
     this.currentStep = (this.currentStep + 1) % 8;
     const interval = Math.floor((60000 / this.bpm) / 2); // 8th note
-    this.timer = setTimeout(() => this.runClock(), interval);
+    scheduleNextTick(this, () => this.runClock(), interval);
   }
 
   resetClock(now = null) {
     clearTimeout(this.timer);
+    this._nextTickTime = null;
     this.currentStep = 0;
     this.runClock(now || this.ctx.currentTime);
   }
 
   setParam(name, val) {
     if (name === 'bpm') {
-      this.bpm = Math.max(40, Math.min(240, Math.round(val)));
+      this.bpm = clamp(Math.round(val), 40, 240);
     }
   }
 
@@ -2737,20 +2780,21 @@ class EuclidModule {
 
     this.currentStep = (this.currentStep + 1) % this.pattern.length;
     const stepInterval = Math.floor((60000 / this.bpm) / 4);
-    this.timer = setTimeout(() => this.runClock(), stepInterval);
+    scheduleNextTick(this, () => this.runClock(), stepInterval);
   }
 
   resetClock(now = null) {
     clearTimeout(this.timer);
+    this._nextTickTime = null;
     this.currentStep = 0;
     this.runClock(now || this.ctx.currentTime);
   }
 
   setParam(name, val) {
-    if (name === 'bpm') this.bpm = Math.max(40, Math.min(240, Math.round(val)));
-    else if (name === 'steps') { this.steps = Math.max(2, Math.min(16, Math.round(val))); this.calcPattern(); }
-    else if (name === 'pulses') { this.pulses = Math.max(1, Math.min(16, Math.round(val))); this.calcPattern(); }
-    else if (name === 'offset') { this.offset = Math.max(0, Math.min(15, Math.round(val))); this.calcPattern(); }
+    if (name === 'bpm') this.bpm = clamp(Math.round(val), 40, 240);
+    else if (name === 'steps') { this.steps = clamp(Math.round(val), 2, 16); this.calcPattern(); }
+    else if (name === 'pulses') { this.pulses = clamp(Math.round(val), 1, 16); this.calcPattern(); }
+    else if (name === 'offset') { this.offset = clamp(Math.round(val), 0, 15); this.calcPattern(); }
   }
 
   getJackOutputNode(jack) { return this.outGain; }
@@ -2837,18 +2881,19 @@ class TuringModule {
     osc.stop(now + dur);
 
     const interval = Math.floor(1000 / this.rate);
-    this.timer = setTimeout(() => this.runClock(), interval);
+    scheduleNextTick(this, () => this.runClock(), interval);
   }
 
   resetClock(now = null) {
     clearTimeout(this.timer);
+    this._nextTickTime = null;
     this.runClock(now || this.ctx.currentTime);
   }
 
   setParam(name, val) {
-    if (name === 'rate') this.rate = Math.max(0.5, Math.min(20, val));
-    else if (name === 'length') this.length = Math.max(4, Math.min(32, Math.round(val)));
-    else if (name === 'lock') this.lock = Math.max(0, Math.min(1, val));
+    if (name === 'rate') this.rate = clamp(val, 0.5, 20);
+    else if (name === 'length') this.length = clamp(Math.round(val), 4, 32);
+    else if (name === 'lock') this.lock = clamp(val, 0, 1);
     else if (name === 'scale') this.scale = val;
   }
 
@@ -2914,17 +2959,18 @@ class SampleHoldModule {
     this.heldGain.gain.setTargetAtTime(0.25 + Math.abs(sampledVal) * 0.35, now, 0.005);
 
     const interval = Math.floor(1000 / this.rate);
-    this.timer = setTimeout(() => this.runClock(), interval);
+    scheduleNextTick(this, () => this.runClock(), interval);
   }
 
   resetClock(now = null) {
     clearTimeout(this.timer);
+    this._nextTickTime = null;
     this.runClock(now || this.ctx.currentTime);
   }
 
   setParam(name, val) {
-    if (name === 'rate') this.rate = Math.max(0.5, Math.min(30, val));
-    else if (name === 'glide') { this.glide = Math.max(0, Math.min(0.5, val)); this.updateGlide(); }
+    if (name === 'rate') this.rate = clamp(val, 0.5, 30);
+    else if (name === 'glide') { this.glide = clamp(val, 0, 0.5); this.updateGlide(); }
     else if (name === 'source') this.source = val;
   }
 
@@ -2994,20 +3040,21 @@ class AdsrModule {
       const releaseStart = now + a + d + holdTime;
       this.vcaNode.gain.exponentialRampToValueAtTime(0.001, releaseStart + r);
       const totalDur = (a + d + holdTime + r + 0.05) * 1000;
-      this.timer = setTimeout(() => this.triggerEnv(), totalDur);
+      scheduleNextTick(this, () => this.triggerEnv(), totalDur);
     }
   }
 
   resetClock(now = null) {
     clearTimeout(this.timer);
+    this._nextTickTime = null;
     this.triggerEnv(now || this.ctx.currentTime);
   }
 
   setParam(name, val) {
-    if (name === 'attack') this.attack = Math.max(1, Math.min(2000, val));
-    else if (name === 'decay') this.decay = Math.max(10, Math.min(3000, val));
-    else if (name === 'sustain') this.sustain = Math.max(0, Math.min(1, val));
-    else if (name === 'release') this.release = Math.max(10, Math.min(4000, val));
+    if (name === 'attack') this.attack = clamp(val, 1, 2000);
+    else if (name === 'decay') this.decay = clamp(val, 10, 3000);
+    else if (name === 'sustain') this.sustain = clamp(val, 0, 1);
+    else if (name === 'release') this.release = clamp(val, 10, 4000);
     else if (name === 'cycle') {
       this.cycle = val;
       if (this.cycle === 'loop' && !this.timer) this.triggerEnv();
@@ -3082,19 +3129,20 @@ class MathsModule {
     this.filter.frequency.exponentialRampToValueAtTime(200, now + r + f);
 
     const totalDur = (r + f + 0.02) * 1000;
-    this.timer = setTimeout(() => this.runFunction(), totalDur);
+    scheduleNextTick(this, () => this.runFunction(), totalDur);
   }
 
   resetClock(now = null) {
     clearTimeout(this.timer);
+    this._nextTickTime = null;
     this.runFunction(now || this.ctx.currentTime);
   }
 
   setParam(name, val) {
-    if (name === 'rise') this.rise = Math.max(5, Math.min(2000, val));
-    else if (name === 'fall') this.fall = Math.max(10, Math.min(3000, val));
-    else if (name === 'curve') this.curve = Math.max(-1, Math.min(1, val));
-    else if (name === 'level') this.level = Math.max(0, Math.min(1, val));
+    if (name === 'rise') this.rise = clamp(val, 5, 2000);
+    else if (name === 'fall') this.fall = clamp(val, 10, 3000);
+    else if (name === 'curve') this.curve = clamp(val, -1, 1);
+    else if (name === 'level') this.level = clamp(val, 0, 1);
   }
 
   getJackOutputNode(jack) { return this.outGain; }
@@ -3155,14 +3203,14 @@ class HarmonicModule {
   setParam(name, val) {
     const now = this.ctx.currentTime;
     if (name === 'freq') {
-      this.freq = Math.max(30, Math.min(600, val));
+      this.freq = clamp(val, 30, 600);
       for (let i = 0; i < 6; i++) {
         this.oscs[i].frequency.setTargetAtTime(this.freq * (i + 1), now, 0.02);
       }
     } else if (name.startsWith('h')) {
       const idx = parseInt(name.substr(1), 10) - 1;
       if (idx >= 0 && idx < 6) {
-        this.hLevels[idx] = Math.max(0, Math.min(1, val));
+        this.hLevels[idx] = clamp(val, 0, 1);
         this.gains[idx].gain.setTargetAtTime(this.hLevels[idx] * 0.4, now, 0.02);
       }
     }
@@ -3231,10 +3279,10 @@ class BytebeatModule {
   }
 
   setParam(name, val) {
-    if (name === 'clock') this.clock = Math.max(4000, Math.min(24000, val));
+    if (name === 'clock') this.clock = clamp(val, 4000, 24000);
     else if (name === 'algo') this.algo = val;
-    else if (name === 'p1') this.p1 = Math.max(1, Math.min(32, Math.round(val)));
-    else if (name === 'p2') this.p2 = Math.max(1, Math.min(16, Math.round(val)));
+    else if (name === 'p1') this.p1 = clamp(Math.round(val), 1, 32);
+    else if (name === 'p2') this.p2 = clamp(Math.round(val), 1, 16);
   }
 
   getJackOutputNode(jack) { return this.outGain; }
@@ -3304,16 +3352,16 @@ class SpringReverbModule {
   setParam(name, val) {
     const now = this.ctx.currentTime;
     if (name === 'drive') {
-      this.drive = Math.max(1, Math.min(4, val));
+      this.drive = clamp(val, 1, 4);
       this.driveGain.gain.setTargetAtTime(this.drive, now, 0.02);
     } else if (name === 'tension') {
-      this.tension = Math.max(0.1, Math.min(5, val));
+      this.tension = clamp(val, 0.1, 5);
       this.fbGain.gain.setTargetAtTime(Math.min(0.88, 0.3 + this.tension * 0.1), now, 0.02);
     } else if (name === 'damp') {
-      this.damp = Math.max(1000, Math.min(8000, val));
+      this.damp = clamp(val, 1000, 8000);
       this.dampFilter.frequency.setTargetAtTime(this.damp, now, 0.02);
     } else if (name === 'mix') {
-      const m = Math.max(0, Math.min(1, val));
+      const m = clamp(val, 0, 1);
       this.wetGain.gain.setTargetAtTime(m, now, 0.02);
       this.dryGain.gain.setTargetAtTime(1 - m, now, 0.02);
     }
@@ -3399,19 +3447,19 @@ class PingPongDelayModule {
   setParam(name, val) {
     const now = this.ctx.currentTime;
     if (name === 'time') {
-      this.time = Math.max(0.03, Math.min(1.0, val / 1000));
+      this.time = clamp(val / 1000, 0.03, 1.0);
       this.delayL.delayTime.setTargetAtTime(this.time, now, 0.03);
       this.delayR.delayTime.setTargetAtTime(this.time * 1.5, now, 0.03);
     } else if (name === 'feedback') {
-      this.feedback = Math.max(0, Math.min(0.95, val));
+      this.feedback = clamp(val, 0, 0.95);
       this.fbL.gain.setTargetAtTime(this.feedback, now, 0.02);
       this.fbR.gain.setTargetAtTime(this.feedback, now, 0.02);
     } else if (name === 'spread') {
-      this.spread = Math.max(0, Math.min(1, val));
+      this.spread = clamp(val, 0, 1);
       if (this.pannerL) this.pannerL.pan.setTargetAtTime(-this.spread, now, 0.02);
       if (this.pannerR) this.pannerR.pan.setTargetAtTime(this.spread, now, 0.02);
     } else if (name === 'mix') {
-      const m = Math.max(0, Math.min(1, val));
+      const m = clamp(val, 0, 1);
       this.wetGain.gain.setTargetAtTime(m, now, 0.02);
       this.dryGain.gain.setTargetAtTime(1 - m, now, 0.02);
     }
@@ -3487,18 +3535,18 @@ class SvfModule {
   setParam(name, val) {
     const now = this.ctx.currentTime;
     if (name === 'cutoff') {
-      const c = Math.max(40, Math.min(12000, val));
+      const c = clamp(val, 40, 12000);
       this.lpFilter.frequency.setTargetAtTime(c, now, 0.02);
       this.hpFilter.frequency.setTargetAtTime(c, now, 0.02);
     } else if (name === 'res') {
-      const q = Math.max(0.5, Math.min(15, val));
+      const q = clamp(val, 0.5, 15);
       this.lpFilter.Q.setTargetAtTime(q, now, 0.02);
       this.hpFilter.Q.setTargetAtTime(q, now, 0.02);
     } else if (name === 'morph') {
-      this.morph = Math.max(0, Math.min(1, val));
+      this.morph = clamp(val, 0, 1);
       this.updateMorph();
     } else if (name === 'drive') {
-      this.driveGain.gain.setTargetAtTime(Math.max(1, Math.min(3, val)), now, 0.02);
+      this.driveGain.gain.setTargetAtTime(clamp(val, 1, 3), now, 0.02);
     }
   }
 
@@ -3601,14 +3649,14 @@ class RotaryModule {
       this.speed = val;
       this.updateSpeeds();
     } else if (name === 'depth') {
-      this.depth = Math.max(0, Math.min(1, val));
+      this.depth = clamp(val, 0, 1);
       this.updateSpeeds();
     } else if (name === 'crossover') {
-      const c = Math.max(400, Math.min(1200, val));
+      const c = clamp(val, 400, 1200);
       this.crossover.frequency.setTargetAtTime(c, now, 0.02);
       this.hornFilter.frequency.setTargetAtTime(c, now, 0.02);
     } else if (name === 'mix') {
-      const m = Math.max(0, Math.min(1, val));
+      const m = clamp(val, 0, 1);
       this.wetGain.gain.setTargetAtTime(m, now, 0.02);
       this.dryGain.gain.setTargetAtTime(1 - m, now, 0.02);
     }
@@ -3708,17 +3756,17 @@ class TapeWarmerModule {
   setParam(name, val) {
     const now = this.ctx.currentTime;
     if (name === 'saturation') {
-      this.saturation = Math.max(1, Math.min(5, val));
+      this.saturation = clamp(val, 1, 5);
       this.updateCurve();
     } else if (name === 'warmth') {
-      const w = Math.max(0, Math.min(1, val));
+      const w = clamp(val, 0, 1);
       this.lowShelf.gain.setTargetAtTime(w * 6, now, 0.02);
       this.highShelf.gain.setTargetAtTime(-w * 8, now, 0.02);
     } else if (name === 'wow') {
-      const w = Math.max(0, Math.min(1, val));
+      const w = clamp(val, 0, 1);
       this.wowGain.gain.setTargetAtTime(0.003 * w, now, 0.02);
     } else if (name === 'hiss') {
-      this.hissGain.gain.setTargetAtTime(Math.max(0, Math.min(0.3, val)), now, 0.02);
+      this.hissGain.gain.setTargetAtTime(clamp(val, 0, 0.3), now, 0.02);
     }
   }
 
@@ -3780,11 +3828,11 @@ class SubHarmonicModule {
   setParam(name, val) {
     const now = this.ctx.currentTime;
     if (name === 'sub1') {
-      this.sub1Gain.gain.setTargetAtTime(Math.max(0, Math.min(1, val)), now, 0.02);
+      this.sub1Gain.gain.setTargetAtTime(clamp(val, 0, 1), now, 0.02);
     } else if (name === 'sub2') {
-      this.sub2Gain.gain.setTargetAtTime(Math.max(0, Math.min(1, val)), now, 0.02);
+      this.sub2Gain.gain.setTargetAtTime(clamp(val, 0, 1), now, 0.02);
     } else if (name === 'lowCut') {
-      this.lowFilter.frequency.setTargetAtTime(Math.max(40, Math.min(250, val * 2)), now, 0.02);
+      this.lowFilter.frequency.setTargetAtTime(clamp(val * 2, 40, 250), now, 0.02);
     }
   }
 
@@ -3850,7 +3898,7 @@ class CrossfaderModule {
 
   setParam(name, val) {
     if (name === 'fade') {
-      this.fade = Math.max(0, Math.min(1, val));
+      this.fade = clamp(val, 0, 1);
       this.updateGains();
     } else if (name === 'curve') {
       this.curve = val;
@@ -3911,14 +3959,14 @@ class QuadLfoModule {
   setParam(name, val) {
     const now = this.ctx.currentTime;
     if (name === 'rate') {
-      this.rate = Math.max(0.05, Math.min(20, val));
+      this.rate = clamp(val, 0.05, 20);
       this.osc1.frequency.setTargetAtTime(this.rate, now, 0.02);
       this.osc2.frequency.setTargetAtTime(this.rate * 1.5, now, 0.02);
     } else if (name === 'shape') {
       this.shape = val;
       this.osc1.type = this.shape;
     } else if (name === 'level') {
-      this.level = Math.max(0, Math.min(1, val));
+      this.level = clamp(val, 0, 1);
       this.gain1.gain.setTargetAtTime(this.level * 0.3, now, 0.02);
       this.gain2.gain.setTargetAtTime(this.level * 0.2, now, 0.02);
     }
@@ -4091,7 +4139,7 @@ class MidiPlayerModule {
     if (!this.midiData || !this.midiData.tracks) return;
     const track = this.midiData.tracks.find(t => t.id === trackId);
     if (track) {
-      track.volume = Math.max(0, Math.min(3.0, parseFloat(volume)));
+      track.volume = clamp(parseFloat(volume), 0, 3.0);
     }
   }
 
@@ -4282,9 +4330,9 @@ class MidiPlayerModule {
   }
 
   triggerNote(track, note, startTime, duration) {
-    const midiPitch = Math.max(12, Math.min(127, note.note + this.transpose));
+    const midiPitch = clamp(note.note + this.transpose, 12, 127);
     const freq = 440 * Math.pow(2, (midiPitch - 69) / 12);
-    const velNormalized = Math.max(0.25, Math.min(1.0, (note.velocity || 90) / 127));
+    const velNormalized = clamp((note.velocity || 90) / 127, 0.25, 1.0);
 
     // Dynamic track & voice volume calculation
     const trackVol = track.volume !== undefined ? track.volume : 1.0;
@@ -4373,13 +4421,13 @@ class MidiPlayerModule {
 
   setParam(name, val) {
     if (name === 'rate') {
-      this.rate = Math.max(0.1, Math.min(4.0, parseFloat(val)));
+      this.rate = clamp(parseFloat(val), 0.1, 4.0);
     } else if (name === 'transpose') {
       this.transpose = parseInt(val) || 0;
     } else if (name === 'gain') {
-      this.gain = Math.max(0.2, Math.min(5.0, parseFloat(val)));
+      this.gain = clamp(parseFloat(val), 0.2, 5.0);
     } else if (name === 'level') {
-      this.level = Math.max(0, Math.min(3.0, parseFloat(val)));
+      this.level = clamp(parseFloat(val), 0, 3.0);
       this.outGain.gain.setTargetAtTime(this.level, this.ctx.currentTime, 0.02);
     } else if (name === 'timbre') {
       this.timbre = val;
@@ -4537,7 +4585,7 @@ class SamplePlayerModule {
         sample = Math.sin(2 * Math.PI * pf * t) * env;
       }
 
-      d[i] = Math.max(-1, Math.min(1, sample * 0.95));
+      d[i] = clamp(sample * 0.95, -1, 1);
     }
 
     return buf;
@@ -4578,7 +4626,7 @@ class SamplePlayerModule {
     source.connect(env);
     env.connect(this.filterNode);
 
-    const startOffset = Math.max(0, Math.min(buf.duration - 0.01, (this.start / 100) * buf.duration));
+    const startOffset = clamp((this.start / 100) * buf.duration, 0, buf.duration - 0.01);
     source.start(now, startOffset);
     source.stop(now + this.decay);
 
@@ -4616,17 +4664,17 @@ class SamplePlayerModule {
     } else if (name === 'pitch') {
       this.pitch = parseFloat(val);
     } else if (name === 'decay') {
-      this.decay = Math.max(0.02, Math.min(2.5, parseFloat(val)));
+      this.decay = clamp(parseFloat(val), 0.02, 2.5);
     } else if (name === 'start') {
-      this.start = Math.max(0, Math.min(100, parseFloat(val)));
+      this.start = clamp(parseFloat(val), 0, 100);
     } else if (name === 'crunch') {
-      this.crunch = Math.max(0, Math.min(1.0, parseFloat(val)));
+      this.crunch = clamp(parseFloat(val), 0, 1.0);
       this.updateCrunchCurve();
     } else if (name === 'cutoff') {
-      this.cutoff = Math.max(200, Math.min(14000, parseFloat(val)));
+      this.cutoff = clamp(parseFloat(val), 200, 14000);
       this.filterNode.frequency.setTargetAtTime(this.cutoff, this.ctx.currentTime, 0.02);
     } else if (name === 'level') {
-      this.level = Math.max(0, Math.min(2.0, parseFloat(val)));
+      this.level = clamp(parseFloat(val), 0, 2.0);
       this.outGain.gain.setTargetAtTime(this.level, this.ctx.currentTime, 0.02);
     }
   }
@@ -4864,13 +4912,13 @@ class MacroPercussionModule {
   setParam(name, val) {
     if (name === 'model') this.model = val;
     else if (name === 'pitch') this.pitch = parseFloat(val);
-    else if (name === 'decay') this.decay = Math.max(0.05, Math.min(2.0, parseFloat(val)));
-    else if (name === 'harmonics') this.harmonics = Math.max(0, Math.min(1.0, parseFloat(val)));
-    else if (name === 'morph') this.morph = Math.max(0, Math.min(1.0, parseFloat(val)));
+    else if (name === 'decay') this.decay = clamp(parseFloat(val), 0.05, 2.0);
+    else if (name === 'harmonics') this.harmonics = clamp(parseFloat(val), 0, 1.0);
+    else if (name === 'morph') this.morph = clamp(parseFloat(val), 0, 1.0);
     else if (name === 'fold') {
-      this.fold = Math.max(0, Math.min(1.0, parseFloat(val)));
+      this.fold = clamp(parseFloat(val), 0, 1.0);
       this.updateWavefoldCurve();
-    } else if (name === 'accent') this.accent = Math.max(0, Math.min(1.0, parseFloat(val)));
+    } else if (name === 'accent') this.accent = clamp(parseFloat(val), 0, 1.0);
   }
 
   getJackOutputNode(jack) {
@@ -4974,7 +5022,7 @@ class AmenSlicerModule {
           v += (Math.random() * 2 - 1) * Math.exp(-t / 0.04) * 0.15;
         }
 
-        fd[i] = Math.max(-1, Math.min(1, v));
+        fd[i] = clamp(v, -1, 1);
       }
 
       for (let i = 0; i < sliceLen; i++) {
@@ -5017,7 +5065,7 @@ class AmenSlicerModule {
     this.playCurrentSlice();
     this.currentStep = (this.currentStep + 1) % 16;
     const intervalMs = Math.floor((60000 / this.bpm) / 4);
-    this.timer = setTimeout(() => this.runClock(), intervalMs);
+    scheduleNextTick(this, () => this.runClock(), intervalMs);
   }
 
   playCurrentSlice(scheduledTime = null) {
@@ -5070,29 +5118,34 @@ class AmenSlicerModule {
 
   resetClock(now = null) {
     clearTimeout(this.timer);
+    this._nextTickTime = null;
     this.currentStep = 0;
     this.runClock();
   }
 
   setParam(name, val) {
     if (name === 'bpm') {
-      this.bpm = Math.max(50, Math.min(240, Math.round(val)));
-      this.initBreakSlices();
+      this.bpm = clamp(Math.round(val), 50, 240);
+      // initBreakSlices resynthesizes all 16 break slices on the main
+      // thread; debounce so a knob drag doesn't fire it on every tick.
+      clearTimeout(this._sliceDebounce);
+      this._sliceDebounce = setTimeout(() => this.initBreakSlices(), 100);
     } else if (name === 'break') {
       this.break = val;
-      this.initBreakSlices();
+      clearTimeout(this._sliceDebounce);
+      this._sliceDebounce = setTimeout(() => this.initBreakSlices(), 100);
     } else if (name === 'mode') {
       this.mode = val;
     } else if (name === 'slice') {
-      this.slice = Math.max(1, Math.min(16, parseInt(val)));
+      this.slice = clamp(parseInt(val), 1, 16);
     } else if (name === 'stutter') {
-      this.stutter = Math.max(0, Math.min(1.0, parseFloat(val)));
+      this.stutter = clamp(parseFloat(val), 0, 1.0);
     } else if (name === 'reverse') {
-      this.reverse = Math.max(0, Math.min(1.0, parseFloat(val)));
+      this.reverse = clamp(parseFloat(val), 0, 1.0);
     } else if (name === 'pitch') {
       this.pitch = parseFloat(val);
     } else if (name === 'filter') {
-      this.filter = Math.max(200, Math.min(14000, parseFloat(val)));
+      this.filter = clamp(parseFloat(val), 200, 14000);
       this.filterNode.frequency.setTargetAtTime(this.filter, this.ctx.currentTime, 0.02);
     }
   }
@@ -5111,6 +5164,7 @@ class AmenSlicerModule {
   dispose() {
     this.isRunning = false;
     clearTimeout(this.timer);
+    clearTimeout(this._sliceDebounce);
     try {
       this.inNode.disconnect();
       this.filterNode.disconnect();
@@ -5222,7 +5276,7 @@ class QuadEuclidModule {
     if (this.onStep) this.onStep(activeMap);
 
     const intervalMs = Math.floor((60000 / this.bpm) / 4);
-    this.timer = setTimeout(() => this.runClock(), intervalMs);
+    scheduleNextTick(this, () => this.runClock(), intervalMs);
   }
 
   emitTriggerPulse(node, now) {
@@ -5257,32 +5311,33 @@ class QuadEuclidModule {
 
   resetClock(now = null) {
     clearTimeout(this.timer);
+    this._nextTickTime = null;
     for (const tr of Object.values(this.tracks)) tr.currentStep = 0;
     if (this.isRunning) this.runClock();
   }
 
   setParam(name, val) {
     if (name === 'bpm') {
-      this.bpm = Math.max(40, Math.min(240, Math.round(val)));
+      this.bpm = clamp(Math.round(val), 40, 240);
     } else if (name === 'active_ch') {
       this.active_ch = val;
     } else if (name === 'steps') {
       if (this.tracks[this.active_ch]) {
-        this.tracks[this.active_ch].steps = Math.max(1, Math.min(16, parseInt(val)));
+        this.tracks[this.active_ch].steps = clamp(parseInt(val), 1, 16);
         this.recomputePatterns();
       }
     } else if (name === 'pulses') {
       if (this.tracks[this.active_ch]) {
-        this.tracks[this.active_ch].pulses = Math.max(0, Math.min(16, parseInt(val)));
+        this.tracks[this.active_ch].pulses = clamp(parseInt(val), 0, 16);
         this.recomputePatterns();
       }
     } else if (name === 'offset') {
       if (this.tracks[this.active_ch]) {
-        this.tracks[this.active_ch].offset = Math.max(0, Math.min(15, parseInt(val)));
+        this.tracks[this.active_ch].offset = clamp(parseInt(val), 0, 15);
         this.recomputePatterns();
       }
     } else if (name === 'gate_len') {
-      this.gate_len = Math.max(10, Math.min(120, parseFloat(val)));
+      this.gate_len = clamp(parseFloat(val), 10, 120);
     } else if (name === 'run') {
       this.run = val;
       this.isRunning = (val === 'running');
@@ -5371,7 +5426,7 @@ class StochasticVaultModule {
   runTick() {
     if (!this.isRunning) return;
     const now = this.ctx.currentTime;
-    const len = Math.max(4, Math.min(32, this.length));
+    const len = clamp(this.length, 4, 32);
 
     const memIdx = this.stepCount % len;
     let rawVal;
@@ -5425,7 +5480,7 @@ class StochasticVaultModule {
     this.stepCount++;
     const jitterOffset = (Math.random() * 2 - 1) * this.jitter * 0.2;
     const intervalMs = Math.max(20, Math.floor((1000 / this.rate) * (1.0 + jitterOffset)));
-    this.timer = setTimeout(() => this.runTick(), intervalMs);
+    scheduleNextTick(this, () => this.runTick(), intervalMs);
   }
 
   emitGatePulse(node, now) {
@@ -5446,18 +5501,19 @@ class StochasticVaultModule {
 
   resetClock(now = null) {
     clearTimeout(this.timer);
+    this._nextTickTime = null;
     this.stepCount = 0;
     this.runTick();
   }
 
   setParam(name, val) {
-    if (name === 'rate') this.rate = Math.max(0.5, Math.min(25, parseFloat(val)));
-    else if (name === 'deja_vu') this.deja_vu = Math.max(0, Math.min(1.0, parseFloat(val)));
-    else if (name === 'length') this.length = Math.max(4, Math.min(32, parseInt(val)));
-    else if (name === 'spread') this.spread = Math.max(0.5, Math.min(3.0, parseFloat(val)));
+    if (name === 'rate') this.rate = clamp(parseFloat(val), 0.5, 25);
+    else if (name === 'deja_vu') this.deja_vu = clamp(parseFloat(val), 0, 1.0);
+    else if (name === 'length') this.length = clamp(parseInt(val), 4, 32);
+    else if (name === 'spread') this.spread = clamp(parseFloat(val), 0.5, 3.0);
     else if (name === 'scale') this.scale = val;
     else if (name === 'root') this.root = val;
-    else if (name === 'jitter') this.jitter = Math.max(0, Math.min(1.0, parseFloat(val)));
+    else if (name === 'jitter') this.jitter = clamp(parseFloat(val), 0, 1.0);
   }
 
   getJackOutputNode(jack) {
@@ -5593,13 +5649,13 @@ class DualWavetableModule {
   setParam(name, val) {
     const now = this.ctx.currentTime;
     if (name === 'freq1') {
-      this.freq1 = Math.max(20, Math.min(1200, parseFloat(val)));
+      this.freq1 = clamp(parseFloat(val), 20, 1200);
       this.updateFrequencies();
     } else if (name === 'freq2') {
-      this.freq2 = Math.max(20, Math.min(1200, parseFloat(val)));
+      this.freq2 = clamp(parseFloat(val), 20, 1200);
       this.updateFrequencies();
     } else if (name === 'detune') {
-      this.detune = Math.max(-100, Math.min(100, parseFloat(val)));
+      this.detune = clamp(parseFloat(val), -100, 100);
       this.osc2.detune.setTargetAtTime(this.detune, now, 0.02);
     } else if (name === 'table1') {
       this.table1 = val;
@@ -5608,17 +5664,17 @@ class DualWavetableModule {
       this.table2 = val;
       this.updateWavetables();
     } else if (name === 'morph') {
-      this.morph = Math.max(0, Math.min(1.0, parseFloat(val)));
+      this.morph = clamp(parseFloat(val), 0, 1.0);
       this.updateWavetables();
       if (this.onMorphUpdate) this.onMorphUpdate();
     } else if (name === 'cross_fm') {
-      this.cross_fm = Math.max(0, Math.min(1.0, parseFloat(val)));
+      this.cross_fm = clamp(parseFloat(val), 0, 1.0);
       this.fmGain.gain.setTargetAtTime(this.cross_fm * 200, now, 0.02);
     } else if (name === 'sub_level') {
-      this.sub_level = Math.max(0, Math.min(1.0, parseFloat(val)));
+      this.sub_level = clamp(parseFloat(val), 0, 1.0);
       this.subGain.gain.setTargetAtTime(this.sub_level * 0.7, now, 0.02);
     } else if (name === 'spread') {
-      this.spread = Math.max(0, Math.min(1.0, parseFloat(val)));
+      this.spread = clamp(parseFloat(val), 0, 1.0);
     }
   }
 
@@ -5749,13 +5805,13 @@ class SidechainVcaModule {
 
   setParam(name, val) {
     if (name === 'ducking') {
-      this.ducking = Math.max(0, Math.min(1.0, parseFloat(val)));
+      this.ducking = clamp(parseFloat(val), 0, 1.0);
     } else if (name === 'threshold') {
-      this.threshold = Math.max(-40, Math.min(0, parseFloat(val)));
+      this.threshold = clamp(parseFloat(val), -40, 0);
     } else if (name === 'attack') {
-      this.attack = Math.max(0.5, Math.min(50, parseFloat(val))) / 1000;
+      this.attack = clamp(parseFloat(val), 0.5, 50) / 1000;
     } else if (name === 'release') {
-      this.release = Math.max(20, Math.min(800, parseFloat(val))) / 1000;
+      this.release = clamp(parseFloat(val), 20, 800) / 1000;
     } else if (name === 'mode') {
       this.mode = val;
     }
@@ -5820,6 +5876,7 @@ class TrMatrixSeqModule {
       accent_out: ctx.createGain(),
     };
 
+    this.clickOscs = [];
     for (const node of Object.values(this.trigNodes)) {
       node.gain.setValueAtTime(0.0, ctx.currentTime);
       const clickOsc = ctx.createOscillator();
@@ -5827,6 +5884,7 @@ class TrMatrixSeqModule {
       clickOsc.frequency.setValueAtTime(800, ctx.currentTime);
       clickOsc.connect(node);
       try { clickOsc.start(); } catch (e) {}
+      this.clickOscs.push(clickOsc);
     }
 
     this.connectedTargets = {
@@ -5895,11 +5953,14 @@ class TrMatrixSeqModule {
     const hitOh = this.patterns.oh && this.patterns.oh[s] === 1;
     const isAccented = (s === 0 || s === 4 || s === 8 || s === 12);
 
-    if (hitBd) this.dispatchTrigger('trig_bd', now);
-    if (hitSd) this.dispatchTrigger('trig_sd', now);
-    if (hitCh) this.dispatchTrigger('trig_ch', now);
-    if (hitOh) this.dispatchTrigger('trig_oh', now);
-    if (isAccented) this.dispatchTrigger('accent_out', now);
+    // Accented steps hit harder; `accent` (0-1) sets how much harder.
+    const velocity = isAccented ? Math.min(1.0, 0.6 + this.accent * 0.4) : 0.6;
+
+    if (hitBd) this.dispatchTrigger('trig_bd', now, velocity);
+    if (hitSd) this.dispatchTrigger('trig_sd', now, velocity);
+    if (hitCh) this.dispatchTrigger('trig_ch', now, velocity);
+    if (hitOh) this.dispatchTrigger('trig_oh', now, velocity);
+    if (isAccented) this.dispatchTrigger('accent_out', now, velocity);
 
     if (this.onStep) this.onStep(s);
 
@@ -5914,15 +5975,15 @@ class TrMatrixSeqModule {
     }
 
     this.currentStep = (this.currentStep + 1) % this.steps;
-    this.timer = setTimeout(() => this.runClock(), Math.max(10, interval));
+    scheduleNextTick(this, () => this.runClock(), Math.max(10, interval));
   }
 
-  dispatchTrigger(jack, now) {
+  dispatchTrigger(jack, now, velocity = 1.0) {
     const node = this.trigNodes[jack];
     if (node) {
       try {
         node.gain.cancelScheduledValues(now);
-        node.gain.setValueAtTime(1.0, now);
+        node.gain.setValueAtTime(velocity, now);
         node.gain.setValueAtTime(0.0, now + 0.015);
       } catch (e) {}
     }
@@ -5942,19 +6003,20 @@ class TrMatrixSeqModule {
 
   resetClock(now = null) {
     clearTimeout(this.timer);
+    this._nextTickTime = null;
     this.currentStep = 0;
     this.runClock();
   }
 
   setParam(name, val) {
     if (name === 'bpm') {
-      this.bpm = Math.max(30, Math.min(240, Math.round(val)));
+      this.bpm = clamp(Math.round(val), 30, 240);
     } else if (name === 'swing') {
-      this.swing = Math.max(0, Math.min(75, parseFloat(val)));
+      this.swing = clamp(parseFloat(val), 0, 75);
     } else if (name === 'accent') {
-      this.accent = Math.max(0, Math.min(1.0, parseFloat(val)));
+      this.accent = clamp(parseFloat(val), 0, 1.0);
     } else if (name === 'steps') {
-      this.steps = Math.max(1, Math.min(16, parseInt(val)));
+      this.steps = clamp(parseInt(val), 1, 16);
     } else if (name === 'run') {
       this.run = val;
       this.isRunning = (val === 'running');
@@ -5980,6 +6042,10 @@ class TrMatrixSeqModule {
       this.resetInputNode.disconnect();
       for (const node of Object.values(this.trigNodes)) {
         node.disconnect();
+      }
+      for (const osc of this.clickOscs) {
+        try { osc.stop(); } catch (e) {}
+        osc.disconnect();
       }
     } catch (e) {}
   }

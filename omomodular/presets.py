@@ -1204,7 +1204,7 @@ def get_preset(name: str, patches_dir: Path) -> dict[str, Any] | None:
     if name in FACTORY_PRESETS:
         return FACTORY_PRESETS[name]
 
-    user_file = patches_dir / f"{name}.json"
+    user_file = patches_dir / f"{Path(name).name}.json"
     if user_file.is_file():
         try:
             return json.loads(user_file.read_text("utf-8"))

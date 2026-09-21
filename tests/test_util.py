@@ -65,3 +65,32 @@ def test_dismiss_launch_osd():
 def test_focus_hyprland_window_nomatch():
     # Pattern matching a nonexistent title/class returns False cleanly
     assert not util.focus_hyprland_window("__DEFINITELY_NONEXISTENT_WINDOW_XYZ__")
+
+
+def test_prune_cache_dir_evicts_oldest_first(tmp_path: Path):
+    cache_dir = tmp_path / "cache"
+    cache_dir.mkdir()
+
+    old = cache_dir / "old.bin"
+    old.write_bytes(b"x" * 100)
+    os.utime(old, (1000, 1000))
+
+    new = cache_dir / "new.bin"
+    new.write_bytes(b"x" * 100)
+    os.utime(new, (2000, 2000))
+
+    util.prune_cache_dir(cache_dir, max_bytes=150)
+
+    assert not old.exists()
+    assert new.exists()
+
+
+def test_prune_cache_dir_noop_under_limit(tmp_path: Path):
+    cache_dir = tmp_path / "cache"
+    cache_dir.mkdir()
+    f = cache_dir / "f.bin"
+    f.write_bytes(b"x" * 50)
+
+    util.prune_cache_dir(cache_dir, max_bytes=1000)
+
+    assert f.exists()
