@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import html
+import os
 import re
 import struct
 import urllib.parse
@@ -13,7 +14,11 @@ from typing import Any
 from .util import prune_cache_dir
 
 MIDI_DIR = Path(__file__).parent / "midi"
-CACHE_DIR = MIDI_DIR / "downloads"
+# Bundled starter MIDI files ship read-only alongside the installed package,
+# but downloaded files must land somewhere writable -- MIDI_DIR itself is
+# root-owned on a real (non-editable) install. XDG_CACHE_HOME is the correct
+# home for re-fetchable cache data.
+CACHE_DIR = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "omomodular" / "midi"
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
 USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0"

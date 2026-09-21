@@ -13,7 +13,11 @@ from typing import Any
 from .util import prune_cache_dir
 
 SAMPLE_DIR = Path(__file__).parent / "samples"
-CACHE_DIR = SAMPLE_DIR / "downloads"
+# Bundled starter samples ship read-only alongside the installed package, but
+# downloaded previews must land somewhere writable -- SAMPLE_DIR itself is
+# root-owned on a real (non-editable) install. XDG_CACHE_HOME is the correct
+# home for re-fetchable cache data.
+CACHE_DIR = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "omomodular" / "samples"
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
 USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0"
