@@ -13,3 +13,4 @@ config.toml
 omomodular/midi/downloads/
 omomodular/samples/downloads/
 ui_*.png
+.github/workflows/windows-build.yml
