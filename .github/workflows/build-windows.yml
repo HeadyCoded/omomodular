@@ -1,0 +1,20 @@
+name: Build Windows Binary
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Environment
+        # Install your runtime (e.g., actions/setup-python, actions/setup-node, etc.)
+        run: echo "Set up dependencies here"
+      - name: Build
+        run: |
+          # Your build command here (e.g., pyinstaller, cargo build, etc.)
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-app
+          path: path/to/output/*.exe
