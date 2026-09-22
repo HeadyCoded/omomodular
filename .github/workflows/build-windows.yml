@@ -7,22 +7,25 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          node-version: 20
+          python-version: '3.11'
 
       - name: Install dependencies
-        run: npm install
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller
+          pip install .
 
-      - name: Package to Windows .exe
-        run: npx @yao-pkg/pkg index.js --targets node20-win-x64 --output dist/omomodular.exe
+      - name: Build executable with PyInstaller
+        run: pyinstaller omomodular.spec
 
-      - name: Upload Windows Binary
+      - name: Upload Windows Executable
         uses: actions/upload-artifact@v4
         with:
-          name: omomodular-windows
-          path: dist/omomodular.exe
+          name: OmoModular-Windows
+          path: dist/*.exe
